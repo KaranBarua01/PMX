@@ -28,9 +28,8 @@ LooperScreen::LooperScreen()
     loopLevel.setColour(juce::Slider::textBoxTextColourId, juce::Colour(Theme::text));
     loopLevel.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
 
-    for (auto* c : { static_cast<juce::Component*>(&title), &subtitle, &loopName, &timing, &loopLevelLabel, &loopLevel,
-                     &saveLoop, &exportWav, &record, &play, &overdub, &stop, &undo, &redo, &clear })
-        addAndMakeVisible(*c);
+    juce::Component* components[] = { static_cast<juce::Component*>(&title), &subtitle, &loopName, &timing, &loopLevelLabel, &loopLevel,
+                     &saveLoop, &exportWav, &record, &play, &overdub, &stop, &undo, &redo, &clear }; for (auto* c : components) addAndMakeVisible(*c);
     record.onClick=[this]{if(onRecord)onRecord();}; play.onClick=[this]{if(onPlay)onPlay();};
     overdub.onClick=[this]{if(onOverdub)onOverdub();}; stop.onClick=[this]{if(onStop)onStop();};
     undo.onClick=[this]{if(onUndo)onUndo();}; redo.onClick=[this]{if(onRedo)onRedo();};
