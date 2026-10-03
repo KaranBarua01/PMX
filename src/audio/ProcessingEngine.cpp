@@ -1,0 +1,134 @@
+#include "ProcessingEngine.h"
+#include <algorithm>
+#include <cmath>
+
+namespace pmx::audio
+{
+ProcessingEngine::ProcessingEngine() : metronome(tempoService) {}
+
+void ProcessingEngine::setInputGainDb(float db) noexcept
+{
+    inputGain.store(std::pow(10.0f, db / 20.0f), std::memory_order_relaxed);
+}
+
+void ProcessingEngine::setOutputGainDb(float db) noexcept
+{
+    outputGain.store(std::pow(10.0f, db / 20.0f), std::memory_order_relaxed);
+}
+
+void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, int)
+{
+    preparedSampleRate = newSampleRate;
+    preparedBlockSize = newMaxBlockSize;
+    signalMetrics.reset();
+    guitarRack.prepare(newSampleRate, newMaxBlockSize);
+    irProcessor.reset();
+    metronome.prepare(newSampleRate);
+    tunerCapture.prepare(32768);
+    looperEngine.prepare(newSampleRate, 120.0);
+    quickRecorder.prepare(newSampleRate, 2, 2.0);
+    loopScratchLeft.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
+    loopScratchRight.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
+    metronomeScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
+    muted.store(true, std::memory_order_relaxed);
+}
+
+void ProcessingEngine::stopped() noexcept
+{
+    muted.store(true, std::memory_order_relaxed);
+    signalMetrics.reset();
+}
+
+void ProcessingEngine::process(const float* const* inputs, int numInputs,
+                               float* const* outputs, int numOutputs,
+                               int numSamples) noexcept
+{
+    if (outputs == nullptr || numOutputs <= 0 || numSamples <= 0) return;
+
+    float inPeak = 0.0f;
+    const bool hasLiveInput = inputs != nullptr && numInputs > 0 && inputs[0] != nullptr;
+    if (hasLiveInput)
+    {
+        tunerCapture.push(inputs[0], numSamples);
+        for (int i = 0; i < numSamples; ++i)
+            if (std::isfinite(inputs[0][i])) inPeak = std::max(inPeak, std::abs(inputs[0][i]));
+    }
+    signalMetrics.updateInput(inPeak);
+
+    const bool masterMuted = muted.load(std::memory_order_relaxed);
+    for (int c = 0; c < numOutputs; ++c)
+    {
+        auto* out = outputs[c];
+        if (out == nullptr) continue;
+        if (masterMuted || !hasLiveInput)
+            std::fill_n(out, numSamples, 0.0f);
+        else
+        {
+            const auto gain = inputGain.load(std::memory_order_relaxed);
+            for (int i = 0; i < numSamples; ++i)
+            {
+                const auto v = inputs[0][i];
+                out[i] = std::isfinite(v) ? v * gain : 0.0f;
+            }
+        }
+    }
+
+    if (!masterMuted)
+    {
+        if (!fxBypass.load(std::memory_order_relaxed) && outputs[0] != nullptr)
+        {
+            guitarRack.processPreModels(outputs[0], numSamples);
+            if (guitarRack.isEnabled(dsp::RackModule::nam) && namProcessor.loaded())
+                namProcessor.process(outputs[0], numSamples);
+            if (guitarRack.isEnabled(dsp::RackModule::ir) && irProcessor.loaded())
+                irProcessor.process(outputs[0], numSamples);
+            guitarRack.processPostModels(outputs[0], numSamples);
+            for (int c = 1; c < numOutputs; ++c)
+                if (outputs[c] != nullptr) std::copy_n(outputs[0], numSamples, outputs[c]);
+        }
+
+        if (numSamples <= static_cast<int>(loopScratchLeft.size()))
+        {
+            const float* liveL = outputs[0];
+            const float* liveR = numOutputs > 1 && outputs[1] != nullptr ? outputs[1] : outputs[0];
+            looperEngine.process(liveL, liveR, loopScratchLeft.data(), loopScratchRight.data(), numSamples);
+            if (outputs[0] != nullptr)
+                for (int i = 0; i < numSamples; ++i) outputs[0][i] += loopScratchLeft[static_cast<std::size_t>(i)];
+            if (numOutputs > 1 && outputs[1] != nullptr)
+                for (int i = 0; i < numSamples; ++i) outputs[1][i] += loopScratchRight[static_cast<std::size_t>(i)];
+            for (int c = 2; c < numOutputs; ++c)
+                if (outputs[c] != nullptr && outputs[0] != nullptr) std::copy_n(outputs[0], numSamples, outputs[c]);
+        }
+
+        if (numSamples <= static_cast<int>(metronomeScratch.size()))
+        {
+            std::fill_n(metronomeScratch.data(), numSamples, 0.0f);
+            metronome.process(metronomeScratch.data(), numSamples);
+            for (int c = 0; c < numOutputs; ++c)
+                if (outputs[c] != nullptr)
+                    for (int i = 0; i < numSamples; ++i)
+                        outputs[c][i] += metronomeScratch[static_cast<std::size_t>(i)];
+        }
+    }
+
+    const auto masterGain = outputGain.load(std::memory_order_relaxed);
+    for (int c = 0; c < numOutputs; ++c)
+        if (outputs[c] != nullptr)
+            for (int i = 0; i < numSamples; ++i) outputs[c][i] *= masterGain;
+
+    outputProtector.process(outputs, numOutputs, numSamples);
+
+    if (quickRecorder.isRecording() && outputs[0] != nullptr)
+    {
+        const float* right = numOutputs > 1 && outputs[1] != nullptr ? outputs[1] : outputs[0];
+        quickRecorder.push(outputs[0], right, numSamples);
+    }
+
+    float outPeak = 0.0f;
+    for (int c = 0; c < numOutputs; ++c)
+        if (outputs[c] != nullptr)
+            for (int i = 0; i < numSamples; ++i)
+                outPeak = std::max(outPeak, std::abs(outputs[c][i]));
+    signalMetrics.updateOutput(outPeak);
+}
+} // namespace pmx::audio

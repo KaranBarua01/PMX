@@ -1,0 +1,2 @@
+#include "Reverb.h"
+namespace pmx::dsp { void Reverb::prepare(double sr){ ring.assign(static_cast<size_t>(sr*0.073)+2u,0.0f);write=0; } void Reverb::process(float* b,int n) noexcept { if(!b||ring.empty())return; for(int i=0;i<n;++i){ const float wet=ring[static_cast<size_t>(write)],x=b[i]; ring[static_cast<size_t>(write)]=x+wet*decay; b[i]=x*(1.0f-mix)+wet*mix; if(++write>=static_cast<int>(ring.size()))write=0; } } }

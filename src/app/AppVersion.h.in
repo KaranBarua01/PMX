@@ -1,0 +1,14 @@
+#pragma once
+
+#include <string_view>
+
+namespace pmx
+{
+struct AppVersion
+{
+    [[nodiscard]] static constexpr std::string_view current() noexcept
+    {
+        return "@PMX_VERSION_STRING@";
+    }
+};
+} // namespace pmx

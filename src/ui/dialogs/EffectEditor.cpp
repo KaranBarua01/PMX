@@ -1,0 +1,8 @@
+#include "EffectEditor.h"
+#include "ui/PmxTheme.h"
+namespace pmx::ui
+{
+EffectEditor::EffectEditor(){ eyebrow.setText("EFFECT EDITOR",juce::dontSendNotification);eyebrow.setColour(juce::Label::textColourId,juce::Colour(Theme::accent));title.setText("DELAY",juce::dontSendNotification);title.setFont(juce::FontOptions(28.0f,juce::Font::bold));title.setColour(juce::Label::textColourId,juce::Colour(Theme::text));typeLabel.setText("Warm Tape",juce::dontSendNotification);typeLabel.setColour(juce::Label::textColourId,juce::Colour(Theme::mutedText));time.setRange(1,2000,1);time.setValue(420);feedback.setRange(0,95,1);feedback.setValue(23);mix.setRange(0,100,1);mix.setValue(24);for(auto*c:{static_cast<juce::Component*>(&eyebrow),&title,&typeLabel,&time,&feedback,&mix,&tap,&done})addAndMakeVisible(*c);tap.onClick=[this]{if(onTapTempo)onTapTempo();};done.onClick=[this]{if(onDone)onDone();};}
+void EffectEditor::paint(juce::Graphics&g){g.setColour(juce::Colour(Theme::panel));g.fillRoundedRectangle(getLocalBounds().toFloat(),12);g.setColour(juce::Colour(Theme::border));g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(.5f),12,1);}
+void EffectEditor::resized(){auto r=getLocalBounds().reduced(28);eyebrow.setBounds(r.removeFromTop(22));title.setBounds(r.removeFromTop(42));typeLabel.setBounds(r.removeFromTop(36));r.removeFromTop(16);auto knobs=r.removeFromTop(150);int w=knobs.getWidth()/3;time.setBounds(knobs.removeFromLeft(w));feedback.setBounds(knobs.removeFromLeft(w));mix.setBounds(knobs);auto bottom=r.removeFromBottom(40);tap.setBounds(bottom.removeFromLeft(120));done.setBounds(bottom.removeFromRight(100));}
+}

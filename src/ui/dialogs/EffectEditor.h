@@ -1,0 +1,5 @@
+#pragma once
+#include <juce_gui_basics/juce_gui_basics.h>
+#include "ui/components/PmxKnob.h"
+#include "ui/components/PmxButton.h"
+namespace pmx::ui { class EffectEditor final: public juce::Component { public: EffectEditor(); void paint(juce::Graphics&) override; void resized() override; std::function<void()> onDone; std::function<void()> onTapTempo; float timeMs() const noexcept { return static_cast<float>(time.getValue()); } float feedbackPercent() const noexcept { return static_cast<float>(feedback.getValue()); } float mixPercent() const noexcept { return static_cast<float>(mix.getValue()); } void setValues(float timeMsValue, float feedbackValue, float mixValue) { time.setValue(timeMsValue, juce::dontSendNotification); feedback.setValue(feedbackValue, juce::dontSendNotification); mix.setValue(mixValue, juce::dontSendNotification); } private: juce::Label eyebrow,title,typeLabel; PmxKnob time{" ms"},feedback{" %"},mix{" %"}; PmxButton tap{"TAP TEMPO"}; PmxButton done{"DONE",ButtonKind::primary}; }; }

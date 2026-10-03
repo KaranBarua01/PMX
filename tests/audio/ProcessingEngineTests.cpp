@@ -1,0 +1,110 @@
+#include <cmath>
+#include <limits>
+#include <filesystem>
+#include "audio/ProcessingEngine.h"
+
+int main()
+{
+    pmx::audio::ProcessingEngine engine;
+    engine.prepare(44100.0, 128, 1, 2);
+
+    float in[] {0.25f, -0.5f, std::numeric_limits<float>::quiet_NaN(), 2.0f};
+    const float* inputs[] {in};
+    float l[4] {}, r[4] {};
+    float* outputs[] {l, r};
+
+    engine.setMuted(false);
+    engine.setFxBypass(true);
+    engine.process(inputs, 1, outputs, 2, 4);
+
+    if (l[0] != 0.25f || r[1] != -0.5f) return 1;
+    if (! std::isfinite(l[2]) || l[2] != 0.0f) return 2;
+    if (std::abs(l[3]) > 1.0f || std::abs(r[3]) > 1.0f) return 3;
+    auto m = engine.metrics();
+    if (m.inputPeak < 1.9f) return 4;
+    if (m.outputPeak <= 0.0f || m.outputPeak > 1.0f) return 5;
+
+    engine.setMuted(true);
+    engine.process(inputs, 1, outputs, 2, 4);
+    for (float v : l) if (v != 0.0f) return 6;
+    for (float v : r) if (v != 0.0f) return 7;
+
+    // Looper captures the processed live signal and rejoins after the rack.
+    engine.setMuted(false);
+    engine.setFxBypass(true);
+    engine.looper().clear();
+    if (!engine.looper().record()) return 8;
+    float take[] {0.1f, 0.2f, 0.3f, 0.4f};
+    const float* takeInputs[] {take};
+    engine.process(takeInputs, 1, outputs, 2, 4);
+    if (!engine.looper().play()) return 9;
+    float silenceIn[] {0,0,0,0};
+    const float* silenceInputs[] {silenceIn};
+    engine.process(silenceInputs, 1, outputs, 2, 4);
+    if (std::abs(l[0]-0.1f)>0.0001f || std::abs(r[3]-0.4f)>0.0001f) return 10;
+
+    // Quick recorder receives the protected master output without blocking the callback.
+    const auto recPath = std::filesystem::temp_directory_path() / "pmx_processing_engine_take.wav";
+    std::filesystem::remove(recPath);
+    if (!engine.recorder().start(recPath).ok) return 11;
+    engine.process(takeInputs, 1, outputs, 2, 4);
+    const auto recResult = engine.recorder().stop();
+    if (!recResult.ok || engine.recorder().framesAccepted() != 4) return 12;
+    std::filesystem::remove(recPath);
+
+    // IR is inserted between drive and post-cab effects and is skipped by FX bypass.
+    engine.looper().clear();
+    auto irData = std::make_shared<pmx::ir::IrData>();
+    irData->sampleRate = 44100.0;
+    irData->taps = { 0.5f };
+    engine.ir().setPrepared(irData);
+    engine.rack().setEnabled(pmx::dsp::RackModule::ir, true);
+    engine.setFxBypass(false);
+    float irIn[] {0.4f, -0.2f, 0.0f, 0.1f};
+    const float* irInputs[] {irIn};
+    engine.process(irInputs, 1, outputs, 2, 4);
+    if (std::abs(l[0] - 0.2f) > 0.0001f || std::abs(l[1] + 0.1f) > 0.0001f) return 13;
+
+    engine.setFxBypass(true);
+    engine.process(irInputs, 1, outputs, 2, 4);
+    if (std::abs(l[0] - 0.4f) > 0.0001f) return 14;
+
+    // The metronome joins after the looper/live rack and follows the shared tempo.
+    engine.looper().clear();
+    engine.setFxBypass(true);
+    engine.tempo().setBpm(300.0);
+    engine.setMetronomeEnabled(true);
+    engine.prepare(1000.0, 128, 1, 2);
+    engine.setMuted(false);
+    engine.tempo().setBpm(300.0);
+    engine.setMetronomeEnabled(true);
+    float metIn[128] {};
+    const float* metInputs[] {metIn};
+    float metL[128] {}, metR[128] {};
+    float* metOutputs[] {metL, metR};
+    engine.process(metInputs, 1, metOutputs, 2, 128);
+    engine.process(metInputs, 1, metOutputs, 2, 128);
+    bool heardClick = false;
+    for (float v : metL) if (std::abs(v) > 0.0001f) heardClick = true;
+    if (!heardClick) return 15;
+
+    // Settings input/output gain controls must affect the live path using dB units.
+    engine.setMetronomeEnabled(false);
+    engine.looper().clear();
+    engine.prepare(44100.0, 128, 1, 2);
+    engine.setMuted(false);
+    engine.setFxBypass(true);
+    engine.setInputGainDb(-6.0206f);
+    engine.setOutputGainDb(0.0f);
+    float gainIn[] {0.4f};
+    const float* gainInputs[] {gainIn};
+    float gainL[] {0.0f}, gainR[] {0.0f};
+    float* gainOutputs[] {gainL, gainR};
+    engine.process(gainInputs, 1, gainOutputs, 2, 1);
+    if (std::abs(gainL[0] - 0.2f) > 0.002f) return 16;
+    engine.setInputGainDb(0.0f);
+    engine.setOutputGainDb(-6.0206f);
+    engine.process(gainInputs, 1, gainOutputs, 2, 1);
+    if (std::abs(gainL[0] - 0.2f) > 0.002f) return 17;
+    return 0;
+}
