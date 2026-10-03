@@ -2,32 +2,40 @@
 
 **Design date:** 2026-10-04  
 **Repository:** KaranBarua01/PMX  
-**Status:** Written design for owner review. This document is not an implementation or a released installer.
+**Status:** Expanded written design for owner review. This document is not an implementation or a released installer.
 
 ## 1. Purpose and agreed boundaries
 
-PMX is a simple Windows 11 application for playing guitar through effects, making instrument-like sounds, and building loops. The user should be able to install it, select the audio device, choose a sound, and play without learning a DAW or using Git commands.
+PMX is a simple Windows 11 application for playing guitar through effects, transforming guitar performance into other instrument sounds, recording quick ideas, and building loops. The user should be able to install it, select the audio device, choose a sound, and play without learning a traditional DAW or using Git commands.
 
-The Sonicake Pocket Master is strictly the USB audio interface. PMX must not send MIDI, edit the device, change its presets, update its firmware, or depend on its footswitches. All PMX processing and loop controls live on the PC. A one-time manual clean/bypass configuration on the Pocket Master may be necessary for its audio routing; this is not automated by PMX.
+The Sonicake Pocket Master is strictly the USB/ASIO audio interface. PMX must not send MIDI, edit the device, change its presets, update its firmware, or depend on its footswitches. All PMX processing, instrument transformation, recording, looping, preset management, and update controls live on the PC. A one-time manual clean/bypass configuration on the Pocket Master may be necessary for its audio routing; this is not automated by PMX.
 
-The agreed long-term instrument set is guitar, bass, synth, drums, piano, and violin. A future Studio workspace can reuse the engine, but multitrack recording and arrangement are not part of this build.
+The accepted live-app modes are Guitar, Bass, Synth, Drums/Percussion, Piano, and Violin. A future Studio workspace can reuse the engine, but multitrack recording and arrangement are a separate later project.
 
-**Success:** a usable sound-and-loop application with reliable audio, understandable controls, locally saved work, and an Update button. A rendered interface or a successful compilation alone does not establish that success.
+**Success:** a reliable, understandable live-music application where the normal workflow is:
 
-## 2. Delivery boundary: a working foundation before more instruments
+```text
+Tune -> choose mode/sound -> play -> add effects -> loop or record -> save
+```
 
-The product will be delivered in testable increments, not as one unverified collection of features.
+A rendered interface, successful compilation, or prototype sound alone does not establish success.
 
-| Increment | Included | Release gate |
+## 2. Product architecture and delivery order
+
+Everything below is part of PMX, but it is delivered in testable modules so a failure can be isolated instead of hidden inside a large unverified build.
+
+| Milestone | Included | Release gate |
 |---|---|---|
-| Foundation: first usable test build | Windows audio setup; guitar effects; NAM and IR import; looper; presets; local loop save/export; installer and Update button | Windows build, automated tests, and a Pocket Master listening/routing test |
-| Instrument expansion | Single-note guitar-controlled bass and synth; calibrated note/onset-to-drum triggering; metronome and a small beat sequencer | Tracking, latency, false-trigger and practical playing tests |
-| Sampled instruments | Piano and violin using original or redistribution-permitted assets | Auditioned sound quality, note handling, licence checks and performance tests |
-| Future separate project | PMX Studio recording/arrangement workspace | A separate design; not a prerequisite for the live app |
+| 1. Core Live Engine | Windows audio setup; Pocket Master ASIO; clean bypass; tuner; guitar effects; NAM/IR; master/output protection; audio/latency diagnostics; presets | Windows build, automated DSP/state tests, and a Pocket Master routing/listening test |
+| 2. Performance Tools | 120-second stereo looper; metronome; tap tempo; quick recorder; keyboard shortcuts; performance mode; undo/redo; favorites/recent sounds | Stable playback/recording, no blocking on audio thread, file-save tests, practical playing test |
+| 3. Instrument Transformation | Guitar-controlled bass, synth, drums/percussion, piano and violin | Tracking, note/onset accuracy, false-trigger testing, measured added processing delay, practical playing test |
+| 4. Library and Reliability | NAM/IR library management; Save As/Duplicate/A-B compare; autosave; crash recovery; backup/restore; recordings/loops library | Recovery/migration tests, missing-asset tests, data-preservation test |
+| 5. Update and Recovery | Startup update check; Update button; GitHub Releases; user-controlled install; previous-version recovery | Installer/update/digest/recovery tests and preservation of all user-created files |
+| Later separate project | PMX Studio simplified recording/arrangement workspace | Separate written design and implementation plan |
 
-Piano, violin, bass, synth, and drums remain committed product goals; they are not silently removed. Their controls are not presented as finished features in the foundation build. Experimental builds must label unfinished modes explicitly.
+Milestones define build order, not removal of features. Instrument modes remain committed product goals. Unfinished modes must be hidden or explicitly marked experimental; they must not masquerade as finished sounds.
 
-The first candidate will use an alpha version such as `0.2.0-alpha.1`, not a misleading production `1.0`. Version 1.0 requires the accepted live-app scope to pass its release gates. No fixed completion date is promised by this design.
+The first candidate will use an alpha version such as `0.2.0-alpha.1`, not a misleading production `1.0`. Version 1.0 requires the accepted live-app scope to pass its release gates.
 
 ## 3. Technical decisions
 
@@ -35,65 +43,91 @@ Use a native C++20/JUCE standalone application, CMake builds, and Windows x64 di
 
 Use the Pocket Master manufacturer's ASIO driver already installed on the PC. Do not bundle or silently install third-party drivers. Enumerate the driver and channel names; do not hard-code an unverified device string. Other enumerated devices can appear in settings, but only Windows 11 with the Pocket Master is the acceptance target.
 
-Use NeuralAmpModelerCore for NAM inference rather than trying to reverse-engineer the Pocket Master's firmware. It is an upstream C++ DSP library with model-loading and benchmarking tools. Its exact commit and tested model formats must be recorded before integration is released. [2]
+Use NeuralAmpModelerCore for NAM inference rather than reverse-engineering the Pocket Master's firmware. Its exact commit and tested model formats must be recorded before integration is released. [2]
 
-Use an installer rather than requiring a source build. The proposed packaging tool is Inno Setup in per-user mode. Its `PrivilegesRequired=lowest` setting supports non-administrative installation. Packaging-tool and dependency notices must accompany distributions. [3]
+Use an installer rather than requiring a source build. The proposed packaging tool is Inno Setup in per-user mode. Packaging-tool and dependency notices must accompany distributions. [3]
 
-JUCE offers AGPLv3 and commercial licensing paths. The proposed public-source distribution path is AGPLv3-compatible, with corresponding source and third-party notices for every binary release. This design does not itself relicense old prototype code or accept commercial terms on the user's behalf. Verify the exact JUCE, ASIO integration, NAM, and packaging dependency terms before publishing binaries; incompatible terms block a release. Do not purchase licences without approval. [4]
+JUCE offers AGPLv3 and commercial licensing paths. The proposed public-source distribution path is AGPLv3-compatible, with corresponding source and third-party notices for every binary release. Verify the exact JUCE, ASIO integration, NAM, sample-asset, and packaging dependency terms before publishing binaries. Incompatible terms block a release. Do not purchase licences without approval. [4]
 
 ## 4. Audio routing and component boundaries
 
-### Foundation signal path
+### Live signal path
 
 ```text
 Guitar
   -> Pocket Master audio input
   -> USB / ASIO input channel selected in PMX
-  -> input trim -> gate -> compressor -> drive
-  -> NAM (optional) -> cabinet IR (optional)
-  -> EQ -> chorus -> delay -> reverb
-  -> looper capture / playback mix
+  -> clean analysis tap
+       -> tuner
+       -> pitch/onset tracker
+       -> instrument engine when selected
+  -> live processing path
+       -> input trim -> gate -> compressor -> drive
+       -> NAM (optional) -> cabinet IR (optional)
+       -> EQ -> modulation -> delay -> reverb
+  -> looper / quick-recorder taps
   -> master level -> output protection
   -> USB / ASIO stereo output
   -> Pocket Master headphones or speaker connection
 ```
 
-Stereo spatial effects follow the mono guitar-processing stages. A loop captures the processed sound before master level and output protection. Playback rejoins after the live effects, so changing a live preset does not turn an already-recorded guitar loop into a different instrument or run it through the effects twice.
+Instrument analysis uses a clean pre-distortion tap. Instrument-generated audio is mixed deliberately with or instead of the original guitar; dry leakage must never be accidental.
+
+Stereo spatial effects follow mono guitar-processing stages. A loop captures the processed live output before master level and output protection. Playback rejoins after the live rack so changing a live preset does not reprocess an already-recorded loop.
 
 ### Responsibilities
 
 | Component | Owns | Must not own |
 |---|---|---|
-| Audio device layer | ASIO connection, supported rates/buffers, channels, reconnect state | Presets, downloads or instrument selection |
-| Processing engine | Block processing, parameters, module bypass, graph state | Windows, file dialogs or network calls |
-| Guitar rack | Gate, compressor, drive, NAM, IR, EQ and spatial effects | Device control |
-| Instrument engine, later | Clean-input analysis and instrument generation | Audio hardware and update installation |
-| Looper | Loop transport, audio buffers, overdub and undo state | Direct file writes inside the callback |
-| Preset/asset store | Versioned settings, local file validation, backups | Audio-thread mutation of large objects |
+| Audio device layer | ASIO connection, supported rates/buffers, channels, reconnect state | Presets, downloads, instrument selection |
+| Processing engine | Block processing, parameters, module bypass, graph state | Windows, file dialogs, network calls |
+| Analysis engine | Tuner, pitch tracking, onset tracking, confidence/state | Device control, UI drawing |
+| Guitar rack | Gate, compressor, drive, NAM, IR, EQ, modulation, delay, reverb | Device control |
+| Instrument engines | Bass, synth, drum, piano, violin generation | Hardware control, update installation |
+| Looper | Loop transport, audio buffers, overdub, undo/redo state | Direct file writes inside callback |
+| Recorder | Continuous quick-take capture and stable handoff to file worker | UI ownership, network calls |
+| Tempo service | BPM, tap tempo, metronome timing and sync events | Audio device configuration |
+| Preset/asset store | Versioned settings, file validation, favorites, backups | Audio-thread mutation of large objects |
 | User interface | Controls, readable status, user commands | Ownership of live audio buffers |
-| Update service | Release lookup, verified download and installer handoff | Real-time processing or firmware operations |
+| Update service | Release lookup, verified download, installer handoff | Real-time processing, firmware operations |
 
-The processing engine exposes preparation, block-processing, reset and command/parameter boundaries without depending on the UI. A future Studio host can reuse those boundaries. This is not a promise of a zero-change DAW conversion.
+The processing engine exposes preparation, block-processing, reset, command, and parameter boundaries without depending on the UI. A future Studio host can reuse these boundaries, but that is not a promise of zero-change DAW conversion.
 
 ## 5. Audio safety and performance contract
 
 Start with monitoring muted and a conservative master level. Let the user explicitly enable monitoring after selecting input and output. Do not fall back silently to the laptop microphone or speakers if the Pocket Master disappears.
 
-Request 44.1 kHz and 128 samples when the selected ASIO driver offers them. Offer only supported alternatives; 64 and 256 samples are test candidates, not guaranteed device capabilities. Show the actual selected configuration. Sample-rate changes require stopping audio and handling an existing loop before reinitialisation.
+Request 44.1 kHz and 128 samples when the selected ASIO driver offers them. Offer only supported alternatives; 64 and 256 samples are test candidates, not guaranteed capabilities. Show the actual selected configuration.
 
-Read driver-reported input and output latency separately. Report their sum as **driver-reported I/O latency**, with known processing delay shown separately. Never label the buffer duration, CPU meter, or a guessed number as measured end-to-end latency. JUCE exposes input/output latency queries; physical round-trip validation is a separate test. [5]
+Read driver-reported input and output latency separately. Report their sum as **driver-reported I/O latency**, with known processing delay shown separately. Never label buffer duration, CPU load, or a guessed number as measured end-to-end latency. [5]
 
-No locks that can block, heap allocation, buffer resizing, full-loop clearing/copying, disk access, network requests, or UI calls are permitted in the audio callback. Preallocate working buffers and use bounded commands. Prepare model/IR replacements off the audio thread, swap only at a safe boundary, and reclaim old objects off that thread. Scalar changes are smoothed where necessary to avoid clicks.
+No locks that can block, heap allocation, buffer resizing, large clearing/copying, disk access, network requests, or UI calls are permitted in the audio callback. Preallocate working buffers and use bounded commands. Prepare NAM/IR/sample replacements off the audio thread and swap only at a safe boundary.
 
-Provide separate **FX bypass** and **Mute** controls. FX bypass skips the live rack, but retains master protection and any playing loop; Stop remains the way to stop the loop. Mute silences the entire output. This is software bypass, not a hardware true-bypass claim.
+Provide separate **FX Bypass** and **Mute** controls. FX Bypass skips the live rack but retains master protection and any playing loop. Mute silences the entire output.
 
-Output protection must prevent non-finite samples from reaching the device and limit overload. It is not protection against physically excessive headphone volume. Losing the device mutes output, stops transport, preserves available loop state, and offers an explicit reconnect action.
+Output protection must reject non-finite samples and contain digital overload. It is not a guarantee against excessive physical headphone volume.
 
-The first hardware test must establish a clean USB send, an audible USB return, and a monitoring arrangement without unwanted doubled dry guitar or a feedback loop. PMX cannot disable a hardware monitoring path by itself. If that routing cannot be established, document the limitation before claiming interface-only operation works.
+Losing the audio device mutes output, stops active transport safely, preserves recoverable state, and presents an explicit reconnect action. PMX must not silently substitute another input/output device.
 
-## 6. Guitar rack and file imports
+The first hardware test must establish clean USB send, audible USB return, and monitoring without doubled dry guitar or feedback. If the Pocket Master's direct-monitor path cannot be disabled or managed suitably, document that limitation before claiming interface-only operation works.
 
-The rack has a fixed, understandable order in the foundation release. Each module has an on/off switch and a small set of controls; detailed controls sit behind an Advanced disclosure.
+## 6. Core Live Engine
+
+### 6.1 Tuner
+
+Provide a large chromatic tuner accessible from Live and via keyboard shortcut. Show note name, cents sharp/flat, confidence/stability, and input level. Tuner analysis comes from the clean input tap.
+
+Tuner mode may optionally mute the live output, but muting must be explicit and reversible. No tuning result is shown when signal confidence is too low.
+
+### 6.2 Guitar rack
+
+Use a fixed understandable rack order:
+
+```text
+INPUT -> GATE -> COMP -> DRIVE -> NAM -> IR -> EQ -> MOD -> DELAY -> REVERB -> MASTER
+```
+
+Each module has an on/off state and a compact primary control set, with detailed controls under Advanced.
 
 | Module | Controls shown with real units |
 |---|---|
@@ -102,131 +136,271 @@ The rack has a fixed, understandable order in the foundation release. Each modul
 | Drive | Drive amount, tone, output dB |
 | NAM | File/name, input trim dB, output trim dB, compatibility status |
 | IR | File/name, low-cut Hz, high-cut Hz, output dB |
-| EQ | Low/mid/high gain dB with frequency controls in Hz |
-| Chorus | Rate Hz, depth, mix percent |
-| Delay | Time ms, feedback percent, mix percent; tap tempo |
-| Reverb | Size/decay using the actual algorithm's units, damping, mix percent |
-| Master | Output dB, level/clip indicators, Mute |
+| EQ | Gain dB and frequency Hz |
+| Modulation | Actual algorithm parameters, including rate in Hz when applicable |
+| Delay | Time ms or tempo-sync division, feedback %, mix % |
+| Reverb | Actual algorithm parameters and mix % |
+| Master | Output dB, output meter, clip state, Mute |
 
-Never present a frequency control as a 0-100 value merely because another effect uses that scale. UI values, preset values, and DSP conversions must agree.
+Never use arbitrary 0-100 displays where the DSP has meaningful physical units unless the algorithm genuinely defines a normalized control.
 
-NAM and IR imports use the original local `.nam` and `.wav` files. Importing them into the Pocket Master does not also import them into PMX. The app does not extract profiles from the pedal and does not download paid or login-protected models automatically.
+### 6.3 NAM and IR
 
-Validate model architecture/configuration, model sample rate, finite data, file size and processing cost. Do not identify compatibility from filenames or promise every NAM A1/A2 model works. Publish a tested compatibility table for the pinned inference engine. Use a verified, accounted-for resampling path when model and device rates differ, or reject the combination with a readable explanation; do not run a model at an arbitrary wrong rate.
+NAM and IR imports use local `.nam` and `.wav` files. PMX does not extract models from the Pocket Master and does not assume files previously imported into the pedal are present on the PC.
 
-Decode and prepare IRs outside the callback. Accept mono cabinet/body IRs in the foundation release, with safe sample-rate conversion and explicit duration limits in the UI. Reject unsupported stereo or malformed files rather than silently changing them. A failed import leaves the previous working rig intact. Avoid an abrupt uncabbed, high-gain output during replacement.
+Validate model architecture/configuration, finite data, file size, sample-rate requirements, and processing cost. Do not claim universal A1/A2 compatibility until tested.
 
-Presets keep module state and asset references, not just a preset name. Missing assets produce a repair prompt and keep monitoring muted until acknowledged. No third-party NAMs, IRs, or sample libraries are bundled without an appropriate redistribution licence. Starter sounds must work without requiring commercial assets.
+Decode and prepare IRs outside the callback. Reject malformed or unsupported files without replacing the last working sound.
 
-## 7. Simple interface
+Presets store asset hashes/references plus module state. Missing assets produce a repair prompt rather than silent substitution.
 
-Use five destinations: **Live**, **Looper**, **Presets**, **Settings**, and **Update**. Start at Live. Keep the top-level workflow usable without Advanced panels.
+### 6.4 Master and diagnostics
 
-**Live:** selected sound, input/output meters, input level, main rack switches, master level, FX bypass, Mute, and compact loop transport. The foundation build shows Guitar; later validated instrument modes join this selector.
+Live always exposes master level, output meter, Mute, and overload state. A compact status area shows actual sample rate, buffer size, driver-reported latency, and audio-engine load.
 
-**Looper:** prominent Record/Play/Overdub, Stop, Undo/Redo, Clear, loop level, elapsed/total time, progress, Save Loop and Export WAV. Display state in text as well as visually. Keyboard shortcuts must not trigger while typing in a name or dialog.
+Settings provides an audio test that confirms selected Pocket Master input/output, reports supported buffer/rate options, and guides the user toward 64/128/256-sample choices with human-readable descriptions. PMX must not invent an "excellent" latency rating without defined measured criteria.
 
-**Presets:** Save, Save As, Rename, Duplicate, Delete, Import and Export. Warn before discarding an edited rig. Factory starter presets are read-only templates; user presets are editable. Do not impose the Pocket Master's 50-slot or five-model hardware limits on PMX.
+CPU overload handling should first warn, then offer safe actions such as increasing the buffer or disabling expensive modules. It must not randomly disable user-selected effects without explanation.
 
-**Settings:** device/ASIO control panel, input channel, output pair, rate/buffer, monitoring test, local storage, diagnostics and update preferences. Show a readable device-missing screen instead of an unexplained silence.
+## 7. Performance tools
 
-**Update:** installed version, available version, release notes, Check, Download, Install and Restart. It remains separate from the sound controls.
+### 7.1 Looper
 
-Support a resizable window, keyboard access and Windows display scaling. Do not display fabricated CPU or latency figures. CPU load is labelled audio-engine load, not total PC usage.
+The looper is one stereo loop up to 120 seconds, with Record, Play, Overdub, Stop, Undo, Redo, Clear, loop level, Save Loop, and Export WAV.
 
-## 8. Looper behaviour
+States are Empty, Recording, Playing, Overdubbing, and Stopped. The first recording establishes loop length. Overdubbing records only the new live contribution, not loop playback fed back into itself.
 
-The foundation looper is one stereo loop, up to 120 seconds, with multiple overdubs and one-level undo/redo of the most recent overdub. It is not a multitrack recorder.
+Undo/Redo applies to the most recent completed overdub. Large loop copies/clears are not performed in the callback. Loop boundaries are smoothed to avoid avoidable clicks.
 
-States are Empty, Recording, Playing, Overdubbing and Stopped. The main button cycles Record -> Play -> Overdub -> Play; from Stopped it resumes playback from the start. Stop finalises an active recording/overdub and stops playback. Clear requires confirmation for nonempty audio and returns to Empty. Mute does not erase a loop.
+Export is 24-bit stereo PCM WAV at the session rate. Internal reopenable saves may use lossless float WAV plus metadata.
 
-The first recording establishes loop length. At the limit, recording becomes playback and the UI explains why. Overdubbing must not feed playback back into the recorder as an additional input. Record only the new live signal into the overdub contribution.
+### 7.2 Metronome and tap tempo
 
-Undo/redo operates on a completed overdub while Playing or Stopped, and is disabled during active recording/overdubbing. A new overdub invalidates the redo of an undone pass. Do not run a large snapshot copy or clear on the audio thread. Loop boundary smoothing and explicit headroom prevent avoidable clicks and overload; do not normalise or hard-clip every stored sample as a substitute for level management.
+Provide BPM, Start/Stop, volume, accent, and Tap Tempo. Default BPM range is practical for normal music use and validated in implementation tests.
 
-For the foundation, Save Loop/Export requires Stopped state. The worker writes a stable buffer snapshot, leaving audio playback responsive. Export 24-bit stereo PCM WAV at the session rate; save an internal lossless float WAV plus metadata for reopening. Existing filenames require confirmation before replacement. Disk-full, cancelled, or failed writes do not mark the loop as saved.
+Tempo is a shared service so delay and later beat/sequencer features can follow the same BPM. Effects may choose milliseconds or musical divisions. Tap tempo never blocks audio processing.
 
-No quantisation or time stretching is promised in this release. Device-rate changes with a loop require Save/Discard/Cancel before reinitialisation. Preset changes do not clear a loop; closing or installing an update prompts for an unsaved loop.
+### 7.3 Quick Recorder
 
-## 9. Local data and privacy
+Quick Recorder is separate from the looper. It captures the master program output as a continuous take without overdub semantics.
 
-Install application files separately from user data, for example under `%LOCALAPPDATA%\Programs\PMX`. Keep settings, versioned preset JSON, managed imported assets and update staging under `%LOCALAPPDATA%\PMX`. Use the Windows Documents known-folder location for user-selected loop exports, not a hard-coded username.
+Controls: Record, Stop, elapsed time, save location, and file name. It must support takes longer than the looper limit. Recording uses preallocated/ring-buffer handoff to a file worker so disk writes never block the callback.
 
-Preset records have a schema version, stable ID, display name, module parameters, bypass states and local asset hashes/references. Application settings separately hold the audio-device configuration. Loading a sound preset must not unexpectedly switch the audio device or global master safety state.
+An interrupted or crashed session should recover as much of the temporary recording as safely possible.
 
-Use temporary files and atomic replacement for settings/presets, with a known-good backup. Back up metadata before migrations. Refuse a newer unsupported schema rather than overwriting it. Maintain independent user data so an installer cannot remove recordings or user presets.
+### 7.4 Keyboard shortcuts and performance mode
 
-Normal audio processing, looping, preset use and local instrument assets work offline. Only update checks/downloads need the network. No account, telemetry, audio upload, automatic cloud sync or embedded GitHub token is required. Diagnostics are local and shared only by an explicit export action, with sensitive paths removed.
+Provide configurable or documented shortcuts for at least Bypass, Mute, Tuner, Loop Record/Play, Stop, Tap Tempo, and Quick Record. Shortcuts are disabled when focus is in text entry or a destructive confirmation dialog.
 
-## 10. Update design: no Git commands for the user
+Performance mode shows only the current sound/mode, tuner access, essential meters, master state, large loop controls, tempo, and a small preset switcher. It is optimized for playing, not editing.
 
-Use GitHub Releases in this repository as the distribution source. GitHub's public release API can be queried without authentication and exposes release assets. Asset digests are available for download integrity checks. [6][7]
+## 8. Instrument Transformation
 
-**Checks:** perform a nonblocking startup check, at most once in 24 hours, and provide a manual Check button. The setting can be disabled. Never download or install just because the app starts. A failed check must not stop music-making.
+All instrument modes use the clean-input analysis path and expose confidence/sensitivity controls appropriate to the engine.
 
-**Channels:** stable builds ignore drafts/prereleases. Alpha builds use an explicitly labelled Preview channel so future alpha updates can be found; preview selection is visible and configurable. Compare parsed semantic versions, not strings or only publication dates. Follow pagination when finding a channel-compatible release.
+### 8.1 Common tracker contract
 
-**Download:** show release notes, version and size, then request user action. Select only the expected Windows x64 installer asset for this repository. Require HTTPS, validate redirect destinations, and verify size and SHA-256 against release metadata before execution. A missing digest, malformed version, unexpected asset, truncated file or mismatch blocks installation. Keep staged files out of the source/preset directories.
+Start with monophonic note tracking for Bass, Synth, Piano, and Violin. Provide configurable gate/sensitivity, stable note transitions, retrigger control, pitch-bend smoothing where appropriate, and an **All Notes Off** safety action.
 
-**Install:** the user presses Install and Restart. Block during recording, overdubbing or playback; offer to stop and save first. Back up settings, finish pending writes, close audio, and hand off to the installer. Do not kill a live take or try to overwrite the running executable from the audio process. Installer completion offers restart, then PMX restores settings with monitoring muted.
+Measure instrument-analysis/generation delay separately from ASIO I/O delay. Do not promise universal low-latency numbers, especially on low guitar notes.
 
-The first installer may be unsigned, with that fact clearly disclosed; do not describe it as verified by Microsoft or instruct users to disable Windows security. A checksum validates bytes relative to the trusted GitHub release, not an independent publisher signature or immunity to a compromised repository. A publisher-signing option can be added separately when available.
+Each mode exposes Dry/Wet or Guitar/Instrument mix so the original guitar is included deliberately.
 
-Keep the previous verified installer and a versioned settings backup. A failed download leaves the running version unchanged. A failed install offers recovery with the previous installer; do not claim automatic rollback until it is implemented and tested. Uninstall and update operations must preserve user-created files by default.
+### 8.2 Bass
 
-No installer is offered merely because a commit exists. Only a published release with passing required checks and a valid asset is eligible.
+Bass mode derives a lower-pitched instrument voice from the played note, with octave-down behavior and a purpose-built bass tone path. It must not simply run the guitar through a cabinet and call it bass.
 
-## 11. Reuse, testing and release evidence
+Initial controls: Sound, Tone, Attack, Sustain, Drive, and Guitar/Instrument mix.
 
-The existing `PMX_v0.1_source.zip` is reference material, not a verified Windows product. Its status notes report three small core tests and explicitly say the Windows/JUCE executable was not built. Recheck those claims rather than treating previous chat descriptions as acceptance evidence. Review its audio-thread behaviour, state ownership and test coverage before reusing modules.
+### 8.3 Synth
 
-The repository must keep these evidence categories separate:
+Synth mode maps tracked guitar notes to a synthesizer voice. Initial controls: Sound, Tone, Attack, Sustain, Space, and Guitar/Instrument mix.
+
+Advanced synthesis parameters remain behind Advanced. The default workflow is choose sound -> adjust character -> play.
+
+### 8.4 Drums and percussion
+
+The original PMX concept is preserved: guitar attacks can trigger actual drum/percussion sounds.
+
+Initial playable sounds include Kick, Snare, Hi-Hat, Tom, Clap, and Crash.
+
+Support two mapping methods:
+
+1. **Note-range mapping:** different detected note ranges trigger different percussion sounds.
+2. **User calibration mapping:** the user plays the desired string/note/gesture during setup and assigns that detected event to a drum sound.
+
+Do not claim PMX can identify the physical guitar string with certainty from a mixed pickup signal when the same pitch can be produced in multiple positions. The UI may present friendly string-oriented mapping when calibration makes it practical, but the engine truth remains pitch/onset-based.
+
+Drum mode requires onset detection, retrigger suppression, velocity estimation, sensitivity, minimum retrigger interval, and per-pad level. It triggers original or redistribution-permitted samples or synthesis; compression alone is not called a kick/snare conversion.
+
+A small beat sequencer may be added after live triggering is stable. It remains a drum-machine workflow, not a MIDI piano roll.
+
+### 8.5 Piano
+
+Piano mode maps monophonic tracked notes to a sample-based or otherwise high-quality piano engine. Do not label a simple oscillator as realistic piano.
+
+Initial controls: Sound, Tone, Attack, Sustain, Space, and Guitar/Instrument mix.
+
+Chord transcription is not an initial requirement. Better polyphonic tracking can be a later enhancement after the monophonic engine is accepted.
+
+### 8.6 Violin
+
+Violin mode maps tracked notes to a string/violin engine with smooth pitch transition and expressive envelope behavior.
+
+Initial controls: Sound, Tone, Attack, Sustain, Expression/Space, and Guitar/Instrument mix.
+
+Automatic bow articulation recognition is not an initial requirement. Sound quality must be judged against the actual engine/assets rather than marketing labels.
+
+## 9. Presets, library, and editing workflow
+
+Presets store the complete PMX sound state for the applicable mode, including asset references and module bypass states. Loading a sound preset must not unexpectedly switch the audio device or global master-safety state.
+
+Provide Save, Save As, Rename, Duplicate, Delete, Import, Export, Favorite, and Recent. Factory starter presets are read-only templates; user presets are editable.
+
+Provide **A/B Compare** so the current edited state can be compared with the saved state without losing either. Provide app-level Undo/Redo for parameter editing where practical; destructive library operations still require explicit confirmation.
+
+Organize presets into friendly categories such as Acoustic, Clean, Blues, Rock, Metal, Bass, Synth, Drums, Piano, Violin, and Favorites rather than presenting hundreds of undifferentiated rows.
+
+### 9.1 NAM/IR library
+
+Imported NAMs and IRs appear in a reusable local library. Provide Search, Favorite, Rename display label, Remove from library, Reveal file/details, compatibility status, and missing-file repair.
+
+Deleting a library entry does not silently delete an original source file outside PMX-managed storage. Managed-copy deletion must be explicit.
+
+### 9.2 Loop and recording library
+
+Saved loops and quick recordings have a simple browser with name, date, duration, sample rate, file location, and play/reveal actions. PMX is not a media-library cloud service.
+
+## 10. Autosave, crash recovery, backup, and local data
+
+Install application files separately from user data. Keep settings, versioned preset JSON, managed imported assets, autosave/recovery state, and update staging under an appropriate per-user LocalAppData location. Use Windows known folders or user-selected paths for exported recordings.
+
+Preset/settings records have schema versions and stable IDs. Use temporary files plus atomic replacement for metadata and keep a known-good backup. Refuse unsupported newer schemas rather than overwriting them.
+
+Autosave the current editable rig and important UI/session state without blocking the audio thread. After an abnormal exit, PMX offers recovery of the last autosaved rig and any recoverable quick recording/unsaved loop state.
+
+Provide **Backup PMX Library** and **Restore PMX Library**. A backup includes presets/settings metadata and optionally managed user assets/loops according to user choice. Restore shows what will be changed before overwriting current data.
+
+Normal audio processing, looping, recording, presets, and local instrument assets work offline. Only update checks/downloads need network access. No account, telemetry, audio upload, automatic cloud sync, or embedded GitHub token is required.
+
+## 11. Simple interface
+
+Primary destinations are **Live**, **Looper**, **Presets**, **Settings**, and **Update**. Performance mode is entered from Live. The future Studio area is not shown until that project exists.
+
+**Live:** selected mode/sound, tuner access, meters, rack/module switches, master, FX Bypass, Mute, tempo, compact loop/record controls.
+
+**Looper:** large Record/Play/Overdub, Stop, Undo/Redo, Clear, loop level, elapsed/total time, progress, Save Loop, Export WAV.
+
+**Presets:** category cards, favorites/recent, Save/Save As/Duplicate, A/B Compare, import/export.
+
+**Settings:** device/ASIO control panel, input channel, output pair, rate/buffer, audio test, storage, diagnostics, shortcuts, backup/restore, update preferences.
+
+**Update:** installed version, available version, release notes, Check, Download, Install/Restart, recovery status.
+
+Errors use plain language first with optional technical details. Example:
+
+```text
+Pocket Master could not be opened.
+Another audio application may be using it.
+
+[TRY AGAIN]   [SHOW DETAILS]
+```
+
+The default interface hides engineering complexity. Advanced panels expose deeper controls without turning PMX into a DAW.
+
+Support resizable windows, Windows display scaling, keyboard navigation, and practical operation at both 1920x1080 and approximately 1366x768.
+
+## 12. Update design: no Git commands for normal use
+
+Use GitHub Releases in this repository as the distribution source. [6][7]
+
+Perform a nonblocking startup check at most once in 24 hours and provide a manual Check button. The setting can be disabled. Never install merely because PMX starts.
+
+Stable builds ignore prereleases. Alpha builds use an explicitly labelled Preview channel. Compare semantic versions, not plain strings.
+
+Show release notes, version, and download size before download/install. Select only the expected Windows x64 installer asset. Require HTTPS and verify the asset digest before execution. Integrity failure blocks installation.
+
+The user presses Install and Restart. Block installation during recording, overdubbing, playback, or an unsaved recovery operation; offer safe stop/save first.
+
+Updates preserve presets, imported assets, settings, saved loops, and recordings. Keep the previous verified installer plus a versioned settings backup. A failed download leaves the running version unchanged. A failed install offers previous-version recovery once that recovery path has passed its own tests.
+
+No installer is offered merely because a commit exists. Only a published release with required checks and a valid release asset is eligible.
+
+## 13. Testing and release evidence
+
+The old `PMX_v0.1_source.zip` remains reference material, not proof of a verified Windows product. Any reusable code is re-reviewed and retested.
+
+Evidence categories remain separate:
 
 | Evidence | What it establishes |
 |---|---|
-| Automated unit/DSP tests | Particular behaviours on defined inputs |
+| Unit/DSP tests | Particular behaviours on defined inputs |
 | Windows CI build | Source can produce the Windows application |
-| Installer/update test | Install, upgrade and recovery paths work on a Windows test system |
-| Pocket Master hardware test | Actual routing, listening quality and usable latency on the user's setup |
+| Installer/update test | Install, upgrade, preservation, and recovery paths work |
+| Pocket Master hardware test | Actual routing, monitoring, latency, and listening quality on the user's setup |
+| Musical playability test | Tuner/tracker/looper/instrument behavior feels usable while actually playing guitar |
 
-Foundation release tests cover:
+Core tests include:
 
-- Empty input, extreme/invalid samples, variable blocks and device loss without crashes or unsafe output.
-- Correct channel selection; supported rate/buffer changes; no silent microphone fallback.
-- Every looper transition, zero/short/max-length recordings, overdub isolation, undo/redo, preset switching and export failure.
-- Preset round-trip, missing assets, invalid NAM/IR inputs, unsupported architectures, sample-rate mismatch and cancelled imports.
-- Update up-to-date/available/offline/no-release responses, preview filtering, semantic ordering, digest mismatch and interrupted downloads.
-- Installer upgrade over a prior build with existing presets and saved loops; unsuccessful upgrade and recovery.
-- At least 30 minutes of hardware playback/looping at a supported stable buffer, followed by reconnect testing and listening for clicks, dropouts and doubled monitoring.
+- Empty input, invalid samples, variable blocks, device loss, reconnect, and safe output.
+- Channel selection, supported rate/buffer changes, no silent microphone fallback.
+- Tuner accuracy/stability on defined tones.
+- Guitar-effect parameter/state round trips and bypass behavior.
+- Invalid/missing NAM/IR assets and safe replacement.
+- Looper state transitions, zero/short/max recordings, overdub isolation, undo/redo, export failure.
+- Metronome timing and tap-tempo convergence.
+- Quick Recorder long capture, disk failure, interrupted write, and recovery.
+- Preset Save As/Duplicate/A-B/Undo/Redo and library missing-file repair.
+- Autosave and crash-recovery scenarios.
+- Bass/synth/piano/violin note transitions, stuck-note prevention, and measured added delay.
+- Drum onset false positives, retrigger suppression, mapping/calibration, and velocity behavior.
+- Update offline/up-to-date/available/preview/digest-failure/interrupted-download scenarios.
+- Installer upgrade over an existing user library and previous-version recovery.
 
-Release tests must stay effective in Release configuration; assertions compiled out by `NDEBUG` are not sufficient. Dependency versions, checksums, build commands and test results accompany each release. Windows CI cannot replace the user's physical-device test.
+Release tests must remain effective in Release configuration. Windows CI cannot replace the user's physical Pocket Master test.
 
-## 12. Later instrument-engine contract
+## 14. First hardware acceptance test
 
-Analyse the clean guitar input before nonlinear guitar effects. Keep pitch/onset analysis and sound generation separate so an instrument can be replaced without rewriting the app.
+The first installable alpha is intentionally narrower than the complete product. It must prove the audio foundation before instrument transformation is layered on top.
 
-Start with monophonic notes, configurable gate/sensitivity, stable note transitions, retrigger control, pitch-bend smoothing and an All Notes Off action. Piano/violin tone quality depends on the actual engine/assets; do not label a simple waveform as a realistic sampled instrument.
+The user's first test checks:
 
-Drums trigger actual synthetic or licensed sample sounds from calibrated notes/attacks, rather than claiming compression converts guitar audio into drums. Do not promise identification of the physical string from a mixed pickup signal when different strings can produce the same pitch. Chord-to-piano transcription, automatic articulation recognition and studio-quality violin are not initial acceptance requirements.
+1. PMX detects the Pocket Master ASIO device.
+2. Correct input/output channels can be selected.
+3. Clean monitored guitar reaches the Pocket Master output.
+4. No unwanted doubled dry monitoring or feedback occurs.
+5. FX Bypass and Mute behave correctly.
+6. Guitar rack processing is audible and stable.
+7. NAM and IR files can be loaded safely.
+8. Tuner responds correctly.
+9. Looper can record/play/overdub/stop/clear.
+10. Presets save and reload.
+11. Metronome/tap tempo and Quick Recorder work.
+12. 128-sample playback is stable; 64 and 256 are tested only if the driver exposes them.
+13. Device disconnect/reconnect does not crash the app.
 
-Measure pitch-detection/generation delay separately from ASIO I/O delay. No universal 5-15 ms guitar-to-instrument latency promise applies, especially for low notes or ambiguous attacks. Include dry/wet control so the original guitar can be mixed deliberately rather than leaking through unnoticed.
+Only after this test is accepted do Bass/Synth/Drums/Piano/Violin depend on the same live engine.
 
-## 13. Explicit non-goals
+## 15. Explicit non-goals
 
-No Pocket Master editor, firmware modifications, MIDI/Bluetooth integration, phone app, web audio frontend, multitrack timeline, piano roll, notation, VST host, plugin marketplace, cloud account, paid subscription or automatic model downloads in the foundation build. An extensible design must not turn these non-goals into mandatory dependencies.
+No Pocket Master editor, firmware modifications, MIDI/Bluetooth integration, phone app, web-audio frontend, full multitrack timeline, piano roll, notation editor, VST host, plugin marketplace, cloud account, paid subscription, or automatic model downloads in the live-app build.
 
-## 14. Review checkpoint
+PMX Studio is a later separate design. A simple Quick Recorder is not a DAW.
 
-This document records the selected product direction and defines the first usable increment. The next artifact is a task-by-task implementation plan for the foundation, with test cases and repository changes. Product code and release publication follow review of the written specification and that plan.
+## 16. Review checkpoint
+
+This document records the complete accepted PMX live-app direction and the modular build order. The next artifact is a task-by-task implementation plan for Milestone 1 and its immediate Performance Tools dependencies, followed by implementation and the first Windows/Pocket Master alpha test.
+
+Product code and release publication begin only after owner review of this written specification and the implementation plan.
 
 ## Primary references
 
-These references support dependency/API facts. Product behaviours, thresholds and release gates above are PMX design requirements, not claims that those features already exist.
+These references support dependency/API facts. Product behaviours and release gates above are PMX requirements, not claims that those features already exist.
 
-1. [JUCE 9.0.3 release](https://github.com/juce-framework/JUCE/releases/tag/9.0.3) - verified release and candidate commit.
-2. [NeuralAmpModelerCore](https://github.com/sdatkinson/NeuralAmpModelerCore) - C++ inference library and test/benchmark tools.
-3. [Inno Setup: PrivilegesRequired](https://jrsoftware.org/ishelp/topic_setup_privilegesrequired.htm) - per-user installer setting.
-4. [JUCE licensing FAQ](https://juce.com/get-juce/) - open-source and commercial distribution paths.
-5. [JUCE AudioIODevice](https://docs.juce.com/master/classjuce_1_1AudioIODevice.html) - device latency and control-panel APIs.
-6. [GitHub Releases REST API](https://docs.github.com/en/rest/releases/releases) - public releases, channels and asset metadata.
-7. [GitHub release asset digests](https://github.blog/changelog/2025-06-03-releases-now-expose-digests-for-release-assets/) - SHA-256 release asset integrity.
+1. [JUCE 9.0.3 release](https://github.com/juce-framework/JUCE/releases/tag/9.0.3)
+2. [NeuralAmpModelerCore](https://github.com/sdatkinson/NeuralAmpModelerCore)
+3. [Inno Setup: PrivilegesRequired](https://jrsoftware.org/ishelp/topic_setup_privilegesrequired.htm)
+4. [JUCE licensing](https://juce.com/get-juce/)
+5. [JUCE AudioIODevice](https://docs.juce.com/master/classjuce_1_1AudioIODevice.html)
+6. [GitHub Releases REST API](https://docs.github.com/en/rest/releases/releases)
+7. [GitHub release asset digests](https://github.blog/changelog/2025-06-03-releases-now-expose-digests-for-release-assets/)
