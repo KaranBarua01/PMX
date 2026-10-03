@@ -18,7 +18,7 @@ UpdateDialog::UpdateDialog(std::string currentVersion) : installedVersion(std::m
     notes.setMultiLine(true); notes.setReadOnly(true); notes.setScrollbarsShown(true); notes.setText("What's new will appear here after an update check.");
     notes.setColour(juce::TextEditor::backgroundColourId, juce::Colour(Theme::panelRaised)); notes.setColour(juce::TextEditor::outlineColourId, juce::Colour(Theme::border)); notes.setColour(juce::TextEditor::textColourId, juce::Colour(Theme::text));
 
-    for (auto* c : {static_cast<juce::Component*>(&icon),&eyebrow,&title,&subtitle,&installedLabel,&availableLabel,&status,&notes,&dismiss,&action}) addAndMakeVisible(*c);
+    juce::Component* components[] = {static_cast<juce::Component*>(&icon),&eyebrow,&title,&subtitle,&installedLabel,&availableLabel,&status,&notes,&dismiss,&action}; for (auto* c : components) addAndMakeVisible(*c);
     dismiss.onClick=[this]{ if(onDismiss)onDismiss(); else setVisible(false); };
     action.onClick=[this]{ if(!stagedInstaller.empty()){if(onInstallerReady)onInstallerReady(stagedInstaller);return;} if(decision.status==pmx::update::UpdateStatus::available)startDownload(); else beginCheck(); };
 }
