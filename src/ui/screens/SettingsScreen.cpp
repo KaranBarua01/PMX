@@ -56,8 +56,8 @@ SettingsScreen::SettingsScreen()
         addAndMakeVisible(*slider);
     }
 
-    for (auto* c : {static_cast<juce::Component*>(&title),&subtitle,&connectionTitle,&connectionState,&latencyTitle,&latencyValue,
-                     &stabilityTitle,&inputGainLabel,&outputGainLabel,&helpTitle,&helpText,&apply,&testAudio,&tryAgain,&showDetails}) addAndMakeVisible(*c);
+    juce::Component* components[] = {static_cast<juce::Component*>(&title),&subtitle,&connectionTitle,&connectionState,&latencyTitle,&latencyValue,
+                     &stabilityTitle,&inputGainLabel,&outputGainLabel,&helpTitle,&helpText,&apply,&testAudio,&tryAgain,&showDetails}; for (auto* c : components) addAndMakeVisible(*c);
     tryAgain.setVisible(false); showDetails.setVisible(false);
     apply.onClick=[this]{if(onApply)onApply();};
     testAudio.onClick=[this]{if(onTestAudio)onTestAudio();};
@@ -72,7 +72,7 @@ void SettingsScreen::setAvailableDevices(const std::vector<audio::AudioDeviceInf
     for(const auto& info:devices)
     {
         device.addItem(juce::String(info.name),id);
-        if((!previous.isEmpty()&&previous==info.name)||juce::String(info.name).containsIgnoreCase("Pocket Master")) selected=id;
+        if((!previous.isEmpty()&&previous==juce::String(info.name))||juce::String(info.name).containsIgnoreCase("Pocket Master")) selected=id;
         ++id;
     }
     if(selected==0 && !devices.empty()) selected=1;
