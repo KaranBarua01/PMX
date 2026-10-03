@@ -19,7 +19,19 @@ jobs:
           ref: feat/pmx-foundation
           fetch-depth: 0
 
+      - name: Detect whether transfer is still pending
+        id: transfer
+        shell: bash
+        run: |
+          if [ -f ci/step1-00.b64 ]; then
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "Step 1 source is already materialized."
+          fi
+
       - name: Reconstruct and verify PMX source patch
+        if: steps.transfer.outputs.needed == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -27,10 +39,11 @@ jobs:
           base64 --decode /tmp/pmx-step1.patch.gz.b64 > /tmp/pmx-step1.patch.gz
           gzip -dc /tmp/pmx-step1.patch.gz > /tmp/pmx-step1.patch
           echo "9502195b427bbf04a4cce445b5f0114fda7af21a2c0fafe8f56e32a50e9edc45  /tmp/pmx-step1.patch" | sha256sum --check -
-          git apply --check --exclude=README.md /tmp/pmx-step1.patch
-          git apply --exclude=README.md /tmp/pmx-step1.patch
+          git apply --check --exclude=README.md --exclude=.github/workflows/windows-build.yml /tmp/pmx-step1.patch
+          git apply --exclude=README.md --exclude=.github/workflows/windows-build.yml /tmp/pmx-step1.patch
 
       - name: Update Step 1 status README
+        if: steps.transfer.outputs.needed == 'true'
         shell: bash
         run: |
           cat > README.md <<'EOF'
@@ -80,12 +93,12 @@ jobs:
           The GitHub Actions workflow builds the unsigned test EXE and Inno Setup installer. The first alpha is intentionally unsigned; do not disable Windows security to run it.
           EOF
 
-      - name: Replace transfer scaffolding with real source
+      - name: Publish real source files
+        if: steps.transfer.outputs.needed == 'true'
         shell: bash
         run: |
           set -euo pipefail
           rm -f ci/step1-*.b64 ci/pmx-patch-b64-00
-          rm -f .github/workflows/bootstrap-step1.yml
           rmdir ci 2>/dev/null || true
           git add -A
           git diff --cached --stat
