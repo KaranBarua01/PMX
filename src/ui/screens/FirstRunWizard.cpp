@@ -6,8 +6,7 @@ namespace pmx::ui
 FirstRunWizard::FirstRunWizard()
 {
     setOpaque(false);
-    for (auto* c : { static_cast<juce::Component*>(&stepIndicator), &icon, &title, &subtitle, &deviceSummary, &hint, &primary, &secondary })
-        addAndMakeVisible(*c);
+    juce::Component* components[] = { static_cast<juce::Component*>(&stepIndicator), &icon, &title, &subtitle, &deviceSummary, &hint, &primary, &secondary }; for (auto* c : components) addAndMakeVisible(*c);
 
     stepIndicator.setJustificationType(juce::Justification::centred);
     stepIndicator.setColour(juce::Label::textColourId, juce::Colour(Theme::mutedText));
