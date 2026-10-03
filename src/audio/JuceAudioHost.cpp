@@ -43,8 +43,7 @@ juce::String JuceAudioHost::open(const AudioDeviceSelection& selection)
         if (type->getTypeName().containsIgnoreCase("ASIO")) { asioType = type->getTypeName(); break; }
     if (asioType.isEmpty()) return "ASIO is not available.";
 
-    auto error = manager.setCurrentAudioDeviceType(asioType, true);
-    if (error.isNotEmpty()) return error;
+    manager.setCurrentAudioDeviceType(asioType, true);
 
     auto setup = manager.getAudioDeviceSetup();
     setup.inputDeviceName = selection.deviceName;
@@ -59,7 +58,7 @@ juce::String JuceAudioHost::open(const AudioDeviceSelection& selection)
     setup.outputChannels.setBit(selection.outputLeft);
     setup.outputChannels.setBit(selection.outputRight);
 
-    error = manager.setAudioDeviceSetup(setup, true);
+    const auto error = manager.setAudioDeviceSetup(setup, true);
     if (error.isNotEmpty()) return error;
     manager.addAudioCallback(this);
     callbackAttached = true;
