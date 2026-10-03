@@ -8,7 +8,7 @@ LiveScreen::LiveScreen()
     title.setText("DREAM CLEAN",juce::dontSendNotification); title.setFont(juce::FontOptions(34.0f,juce::Font::bold)); title.setColour(juce::Label::textColourId,juce::Colour(Theme::text));
     subtitle.setText("Wide, glassy and alive — built to stay out of your way.",juce::dontSendNotification); subtitle.setColour(juce::Label::textColourId,juce::Colour(Theme::mutedText));
     status.setText("● POCKET MASTER CONNECTED    48 kHz • 128 samples",juce::dontSendNotification); status.setJustificationType(juce::Justification::centredRight); status.setColour(juce::Label::textColourId,juce::Colour(Theme::healthy));
-    for(auto* c:{static_cast<juce::Component*>(&eyebrow),&title,&subtitle,&status,&tuner,&chooseSound,&perform,&save,&bypass,&namCard,&irCard,&tunerView,&effectEditor,&namIrBrowser}) addAndMakeVisible(*c);
+    juce::Component* components[] = {static_cast<juce::Component*>(&eyebrow),&title,&subtitle,&status,&tuner,&chooseSound,&perform,&save,&bypass,&namCard,&irCard,&tunerView,&effectEditor,&namIrBrowser}; for (auto* c : components) addAndMakeVisible(*c);
     tunerView.setVisible(false); effectEditor.setVisible(false); namIrBrowser.setVisible(false);
     tuner.onClick=[this]{toggleTuner();};
     save.onClick=[this]{if(onSavePreset)onSavePreset();};
