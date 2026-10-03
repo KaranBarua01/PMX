@@ -15,7 +15,7 @@ PerformanceMode::PerformanceMode()
     shortcutHint.setText("B bypass   M mute   T tuner   Space loop   S stop   P tap   R record",juce::dontSendNotification);shortcutHint.setColour(juce::Label::textColourId,juce::Colour(Theme::mutedText));
     delayTime.setRange(1,2000,1);delayTime.setValue(420);feedback.setRange(0,95,1);feedback.setValue(23);mix.setRange(0,100,1);mix.setValue(24);
     inputMeter.setLevel(0.42f); outputMeter.setLevel(0.58f);
-    for(auto* c:{static_cast<juce::Component*>(&title),&subtitle,&preset,&connection,&shortcutHint,&exit,&tuner,&bypass,&mute,&loop,&quickRecord,&tap,&delayTime,&feedback,&mix,&inputMeter,&outputMeter}) addAndMakeVisible(*c);
+    juce::Component* components[] = {static_cast<juce::Component*>(&title),&subtitle,&preset,&connection,&shortcutHint,&exit,&tuner,&bypass,&mute,&loop,&quickRecord,&tap,&delayTime,&feedback,&mix,&inputMeter,&outputMeter}; for (auto* c : components) addAndMakeVisible(*c);
     for(auto& b:chain)addAndMakeVisible(b);
     exit.onClick=[this]{if(onExit)onExit();};
 }
