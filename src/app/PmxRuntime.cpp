@@ -81,8 +81,14 @@ void PmxRuntime::wireUi()
     shell.looper().onUndo=[this]{engine.looper().undo();};
     shell.looper().onRedo=[this]{engine.looper().redo();};
     shell.looper().onClear=[this]{
-        if(juce::AlertWindow::showOkCancelBox(juce::MessageBoxIconType::WarningIcon,"Clear loop?","This removes the current loop from memory.","CLEAR","CANCEL"))
-            engine.looper().clear();
+        const auto options=juce::MessageBoxOptions::makeOptionsOkCancel(
+            juce::MessageBoxIconType::WarningIcon,
+            "Clear loop?",
+            "This removes the current loop from memory.",
+            "CLEAR",
+            "CANCEL",
+            &shell);
+        juce::AlertWindow::showAsync(options,[this](int result){ if(result==1) engine.looper().clear(); });
     };
     shell.looper().onSaveLoop=[this]{saveLoopToLibrary();};
     shell.looper().onExportWav=[this]{exportLoop();};
