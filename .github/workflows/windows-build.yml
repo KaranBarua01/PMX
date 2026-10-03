@@ -1,0 +1,49 @@
+name: Windows alpha build
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -A x64 -DPMX_BUILD_GUI=ON -DPMX_BUILD_TESTS=ON -DPMX_ENABLE_NAM_CORE=ON
+
+      - name: Build Release
+        run: cmake --build build --config Release --parallel
+
+      - name: Test Release
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Verify user data is outside the install directory
+        shell: pwsh
+        run: |
+          $script = Get-Content installer/PMX.iss -Raw
+          if ($script -notmatch 'DefaultDirName=\{localappdata\}\\Programs\\PMX') { throw 'Installer is not per-user under LocalAppData Programs.' }
+          if ($script -match '\{localappdata\}\\PMX.*delete') { throw 'Installer script appears to delete PMX user data.' }
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\PMX.iss'
+
+      - name: Upload unsigned alpha
+        uses: actions/upload-artifact@v4
+        with:
+          name: PMX-windows-alpha-unsigned
+          path: |
+            build/PMX_artefacts/Release/PMX.exe
+            dist/PMX-0.2.0-alpha.1-x64.exe
+            docs/testing/first-pocket-master-test.md
+          if-no-files-found: error
