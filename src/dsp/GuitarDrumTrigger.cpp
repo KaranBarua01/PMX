@@ -17,6 +17,7 @@ void GuitarDrumTrigger::prepare(double newSampleRate) noexcept
     cooldownSamples = 0;
     slowEnvelope = 0.0f;
     previousAbs = 0.0f;
+    wasEnabled = false;
     kickEnvelope = snareEnvelope = closedHatEnvelope = openHatEnvelope = tomEnvelope = crashEnvelope = 0.0f;
     kickPhase = snarePhase = tomPhase = crashPhase = 0.0;
     previousNoise = 0.0f;
@@ -25,12 +26,8 @@ void GuitarDrumTrigger::prepare(double newSampleRate) noexcept
 
 void GuitarDrumTrigger::setEnabled(bool value) noexcept
 {
-    enabled.store(value, std::memory_order_relaxed);
-    captureCount = 0;
-    cooldownSamples = 0;
-    slowEnvelope = 0.0f;
-    previousAbs = 0.0f;
-    if (!value) lastDetected.store(-1, std::memory_order_relaxed);
+    enabled.store(value, std::memory_order_release);
+    lastDetected.store(-1, std::memory_order_relaxed);
 }
 
 float GuitarDrumTrigger::noise() noexcept
@@ -142,7 +139,17 @@ float GuitarDrumTrigger::renderVoice() noexcept
 void GuitarDrumTrigger::process(const float* input, float* monoOut, int numSamples) noexcept
 {
     if (!monoOut || numSamples <= 0) return;
-    const bool active = enabled.load(std::memory_order_relaxed);
+    const bool active = enabled.load(std::memory_order_acquire);
+    if (active != wasEnabled)
+    {
+        captureCount = 0;
+        cooldownSamples = 0;
+        slowEnvelope = 0.0f;
+        previousAbs = 0.0f;
+        if (!active)
+            kickEnvelope = snareEnvelope = closedHatEnvelope = openHatEnvelope = tomEnvelope = crashEnvelope = 0.0f;
+        wasEnabled = active;
+    }
 
     for (int i = 0; i < numSamples; ++i)
     {
