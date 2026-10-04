@@ -7,12 +7,12 @@ namespace pmx::ui
 {
 UpdateDialog::UpdateDialog(std::string currentVersion) : installedVersion(std::move(currentVersion))
 {
-    icon.setText("↗", juce::dontSendNotification); icon.setJustificationType(juce::Justification::centred); icon.setColour(juce::Label::textColourId, juce::Colour(Theme::accent)); icon.setFont(juce::FontOptions(24.0f, juce::Font::bold));
+    icon.setText("UP", juce::dontSendNotification); icon.setJustificationType(juce::Justification::centred); icon.setColour(juce::Label::textColourId, juce::Colour(Theme::accent)); icon.setFont(juce::FontOptions(24.0f, juce::Font::bold));
     eyebrow.setText("PMX UPDATE", juce::dontSendNotification); eyebrow.setColour(juce::Label::textColourId, juce::Colour(Theme::accent)); eyebrow.setFont(juce::FontOptions(11.0f, juce::Font::bold));
     title.setText("A little better. Still your sound.", juce::dontSendNotification); title.setColour(juce::Label::textColourId, juce::Colour(Theme::text)); title.setFont(juce::FontOptions(24.0f, juce::Font::bold));
     subtitle.setText("Updates improve PMX without touching your presets, imported sounds, loops or recordings.", juce::dontSendNotification); subtitle.setColour(juce::Label::textColourId, juce::Colour(Theme::mutedText));
     installedLabel.setText("INSTALLED  " + juce::String(installedVersion), juce::dontSendNotification); installedLabel.setColour(juce::Label::textColourId, juce::Colour(Theme::mutedText));
-    availableLabel.setText("AVAILABLE  —", juce::dontSendNotification); availableLabel.setColour(juce::Label::textColourId, juce::Colour(Theme::healthy));
+    availableLabel.setText("AVAILABLE  N/A", juce::dontSendNotification); availableLabel.setColour(juce::Label::textColourId, juce::Colour(Theme::healthy));
     status.setText("Ready to check GitHub Releases.", juce::dontSendNotification); status.setColour(juce::Label::textColourId, juce::Colour(Theme::mutedText));
 
     notes.setMultiLine(true); notes.setReadOnly(true); notes.setScrollbarsShown(true); notes.setText("What's new will appear here after an update check.");
@@ -29,7 +29,7 @@ void UpdateDialog::beginCheck()
     const auto version=pmx::update::SemanticVersion::parse(installedVersion);
     if(!version){status.setText("Installed PMX version could not be read.",juce::dontSendNotification);return;}
     const auto channel=version->prerelease.empty()?pmx::update::UpdateChannel::stable:pmx::update::UpdateChannel::preview;
-    checking=true; stagedInstaller.clear(); action.setButtonText("CHECKING…"); action.setEnabled(false); status.setText("Checking GitHub Releases…",juce::dontSendNotification);
+    checking=true; stagedInstaller.clear(); action.setButtonText("CHECKING..."); action.setEnabled(false); status.setText("Checking GitHub Releases...",juce::dontSendNotification);
     checkFuture=pmx::update::ReleaseChecker::checkAsync(*version,channel,[](std::string& error){return pmx::update::JuceReleaseClient::fetchReleases(error);});
     startTimer(100);
 }
@@ -41,7 +41,7 @@ void UpdateDialog::startDownload()
     const auto root=local.isNotEmpty()?juce::File(local):juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
     const auto base=root.getChildFile("PMX").getChildFile("updates");
     const auto destination=base.getChildFile(juce::String(decision.release.assetName)).getFullPathName().toStdString();
-    downloading=true; action.setButtonText("DOWNLOADING…"); action.setEnabled(false); status.setText("Downloading and verifying the installer…",juce::dontSendNotification);
+    downloading=true; action.setButtonText("DOWNLOADING..."); action.setEnabled(false); status.setText("Downloading and verifying the installer...",juce::dontSendNotification);
     downloadFuture=pmx::update::JuceReleaseClient::downloadInstallerAsync(decision.release,std::filesystem::path(destination));
     startTimer(100);
 }
@@ -74,7 +74,7 @@ void UpdateDialog::updatePresentation()
     }
     else if(decision.status==pmx::update::UpdateStatus::upToDate)
     {
-        availableLabel.setText("✓ UP TO DATE",juce::dontSendNotification); notes.setText("You're running the newest release for this update channel."); status.setText("No update is required.",juce::dontSendNotification); action.setButtonText("CHECK AGAIN");
+        availableLabel.setText("UP TO DATE",juce::dontSendNotification); notes.setText("You're running the newest release for this update channel."); status.setText("No update is required.",juce::dontSendNotification); action.setButtonText("CHECK AGAIN");
     }
     else
     {
