@@ -28,7 +28,10 @@ std::optional<audio::AudioDeviceSelection>
 RuntimePolicy::preferredPocketMaster(const std::vector<audio::AudioDeviceInfo>& devices)
 {
     const auto it=std::find_if(devices.begin(),devices.end(),[](const auto& d){
-        return d.asio && d.inputChannels>0 && d.outputChannels>=2 && containsInsensitive(d.name,"Pocket Master");
+        const bool pocketMasterName = containsInsensitive(d.name,"Pocket Master");
+        const bool sonicakeWindowsDriver = containsInsensitive(d.name,"Sonicake USB Audio Device");
+        return d.asio && d.inputChannels>0 && d.outputChannels>=2
+            && (pocketMasterName || sonicakeWindowsDriver);
     });
     if(it==devices.end()) return std::nullopt;
     audio::AudioDeviceSelection out;
