@@ -72,6 +72,8 @@ void PmxRuntime::wireUi()
     shell.live().onRhythmChanged=[this](bool enabled){engine.setRhythmEnabled(enabled);};
     shell.live().onRhythmLevel=[this](float level){engine.setRhythmLevel(level);};
     shell.live().onRhythmPattern=[this](int pattern){engine.setRhythmPattern(pattern);};
+    shell.live().onStringDrumsChanged=[this](bool enabled){engine.setStringDrumsEnabled(enabled);};
+    shell.live().onStringDrumsLevel=[this](float level){engine.setStringDrumsLevel(level);};
     shell.live().onTempoChanged=[this](double bpm){engine.tempo().setBpm(bpm);};
     shell.live().onQuickRecord=[this]{toggleQuickRecord();};
     shell.looper().onLoopLevel=[this](float level){engine.setLoopLevel(level);};
@@ -472,7 +474,7 @@ void PmxRuntime::timerCallback()
             }
         }catch(const std::exception& e){showInfo("Sound import failed",juce::String(e.what()),juce::MessageBoxIconType::WarningIcon);}
     }
-    const auto levels=engine.metrics();shell.live().setMeters(connected?levels.inputPeak:0,connected?levels.outputPeak:0);
+    const auto levels=engine.metrics();shell.live().setMeters(connected?levels.inputPeak:0,connected?levels.outputPeak:0);shell.live().setStringDrumDetected(engine.stringDrumsEnabled()?engine.lastStringDrum():-1);
     shell.performance().setState(currentPresetName,connected?"POCKET MASTER CONNECTED":"POCKET MASTER OFFLINE",connected,!monitoring,bypassed,connected?levels.inputPeak:0,connected?levels.outputPeak:0,engine.tempo().bpm());
     shell.performance().setDelay(sound.effects[7].values[0],sound.effects[7].values[1],sound.effects[7].values[2]);
     shell.live().setTempo(engine.tempo().bpm());shell.live().setRecordingVisual(engine.recorder().isRecording());
