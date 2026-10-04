@@ -30,7 +30,7 @@ SettingsScreen::SettingsScreen()
     connectionTitle.setText("CONNECTION", juce::dontSendNotification); styleLabel(connectionTitle, Theme::mutedText, 11.0f, true);
     connectionState.setText("POCKET MASTER OFFLINE", juce::dontSendNotification); styleLabel(connectionState, Theme::healthy, 11.0f, true);
     latencyTitle.setText("DRIVER-REPORTED I/O LATENCY", juce::dontSendNotification); styleLabel(latencyTitle, Theme::mutedText, 11.0f, true);
-    latencyValue.setText("—", juce::dontSendNotification); styleLabel(latencyValue, Theme::healthy, 26.0f, true);
+    latencyValue.setText("N/A", juce::dontSendNotification); styleLabel(latencyValue, Theme::healthy, 26.0f, true);
     stabilityTitle.setText("RESPONSE & STABILITY", juce::dontSendNotification); styleLabel(stabilityTitle, Theme::mutedText, 11.0f, true);
     inputGainLabel.setText("INPUT GAIN", juce::dontSendNotification); styleLabel(inputGainLabel, Theme::mutedText, 11.0f, true);
     outputGainLabel.setText("OUTPUT LEVEL", juce::dontSendNotification); styleLabel(outputGainLabel, Theme::mutedText, 11.0f, true);
@@ -80,11 +80,11 @@ void SettingsScreen::refreshChannels()
     const auto it=std::find_if(available.begin(),available.end(),[&](const auto& d){return d.name==selected&&d.asio;});
     if(it==available.end()){apply.setEnabled(false);return;}
     apply.setEnabled(true);
-    for(int i=0;i<it->inputChannels;++i)inputChannel.addItem("Channel "+juce::String(i+1)+" · Guitar",i+1);
+    for(int i=0;i<it->inputChannels;++i)inputChannel.addItem("Channel "+juce::String(i+1)+" | Guitar",i+1);
     for(int i=0;i+1<it->outputChannels;i+=2)outputPair.addItem("Channels "+juce::String(i+1)+" + "+juce::String(i+2),i/2+1);
     rates=it->sampleRates;buffers=it->bufferSizes;
     for(std::size_t i=0;i<rates.size();++i)sampleRate.addItem(juce::String(rates[i]/1000,1)+" kHz",static_cast<int>(i)+1);
-    for(std::size_t i=0;i<buffers.size();++i){auto text=juce::String(buffers[i])+" samples";if(buffers[i]==128)text+=" · Recommended";else if(buffers[i]==64)text+=" · Lowest latency";else if(buffers[i]==256)text+=" · More stable";bufferSize.addItem(text,static_cast<int>(i)+1);}
+    for(std::size_t i=0;i<buffers.size();++i){auto text=juce::String(buffers[i])+" samples";if(buffers[i]==128)text+=" | Recommended";else if(buffers[i]==64)text+=" | Lowest latency";else if(buffers[i]==256)text+=" | More stable";bufferSize.addItem(text,static_cast<int>(i)+1);}
     inputChannel.setSelectedId(1,juce::dontSendNotification);outputPair.setSelectedId(1,juce::dontSendNotification);
     for(std::size_t i=0;i<rates.size();++i)if(rates[i]==44100||sampleRate.getItemText(static_cast<int>(i))==oldRate)sampleRate.setSelectedId(static_cast<int>(i)+1,juce::dontSendNotification);
     for(std::size_t i=0;i<buffers.size();++i)if(buffers[i]==128||bufferSize.getItemText(static_cast<int>(i))==oldBuffer)bufferSize.setSelectedId(static_cast<int>(i)+1,juce::dontSendNotification);
@@ -109,9 +109,9 @@ audio::AudioDeviceSelection SettingsScreen::selectedAudioSetup() const
 void SettingsScreen::setConnectionStatus(bool connected,const std::string& connectionText,const std::string& detail,double driverLatencyMs)
 {
     detailText=detail;
-    connectionState.setText(juce::String(connected?"● ":"● ")+juce::String(connectionText),juce::dontSendNotification);
+    connectionState.setText(juce::String(connected?"OK ":"OFFLINE ")+juce::String(connectionText),juce::dontSendNotification);
     connectionState.setColour(juce::Label::textColourId,juce::Colour(connected?Theme::healthy:Theme::danger));
-    latencyValue.setText(connected?juce::String(driverLatencyMs,2)+" ms":"—",juce::dontSendNotification);
+    latencyValue.setText(connected?juce::String(driverLatencyMs,2)+" ms":"N/A",juce::dontSendNotification);
     latencyValue.setColour(juce::Label::textColourId,juce::Colour(connected?Theme::healthy:Theme::danger));
     helpText.setText(juce::String(detail),juce::dontSendNotification);
     tryAgain.setVisible(!connected); showDetails.setVisible(!connected);
