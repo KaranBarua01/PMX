@@ -5,7 +5,7 @@ NamIrBrowser::NamIrBrowser(){
  for(auto* l:{&title,&subtitle,&ampLabel,&cabLabel,&hint}){addAndMakeVisible(*l);l->setColour(juce::Label::textColourId,juce::Colour(Theme::mutedText));}
  title.setText("Find your amp. Choose your cabinet.",juce::dontSendNotification);title.setFont(juce::FontOptions(24.0f,juce::Font::bold));title.setColour(juce::Label::textColourId,juce::Colour(Theme::text));
  subtitle.setText("Import local files. Your sounds stay on this computer.",juce::dontSendNotification);
- ampLabel.setText("AMP CAPTURES · NAM",juce::dontSendNotification);cabLabel.setText("CABINETS · IR",juce::dontSendNotification);
+ ampLabel.setText("AMP CAPTURES | NAM",juce::dontSendNotification);cabLabel.setText("CABINETS | IR",juce::dontSendNotification);
  hint.setText("No models or cabinets are bundled. Import files you have permission to use.",juce::dontSendNotification);
  for(auto* b:{&amp,&cab,&importNam,&importIr,&load,&close})addAndMakeVisible(*b);
  amp.getProperties().set("subtitle","Import a mono .nam model to begin");cab.getProperties().set("subtitle","Import a mono WAV cabinet impulse");
