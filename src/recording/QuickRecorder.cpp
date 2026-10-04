@@ -61,6 +61,9 @@ RecorderResult QuickRecorder::start(const std::filesystem::path& outputPath)
 bool QuickRecorder::push(const float* left, const float* right, int frames) noexcept
 {
     if (!isRecording() || !left || frames <= 0) return false;
+    activeProducers.fetch_add(1,std::memory_order_seq_cst);
+    struct ProducerGuard { std::atomic<unsigned>& active; ~ProducerGuard(){active.fetch_sub(1,std::memory_order_seq_cst);} } guard{activeProducers};
+    if(!recording.load(std::memory_order_seq_cst)) return false;
     const auto write = writeFrame.load(std::memory_order_relaxed);
     const auto read = readFrame.load(std::memory_order_acquire);
     const auto count = static_cast<std::uint64_t>(frames);
@@ -116,7 +119,7 @@ void QuickRecorder::patchHeader()
 void QuickRecorder::workerLoop()
 {
     std::uint64_t lastPatched = 0;
-    while (recording.load(std::memory_order_acquire) || readFrame.load(std::memory_order_relaxed) < writeFrame.load(std::memory_order_acquire))
+    while (recording.load(std::memory_order_seq_cst) || activeProducers.load(std::memory_order_seq_cst)!=0 || readFrame.load(std::memory_order_relaxed) < writeFrame.load(std::memory_order_acquire))
     {
         auto read = readFrame.load(std::memory_order_relaxed);
         const auto write = writeFrame.load(std::memory_order_acquire);
@@ -146,7 +149,8 @@ void QuickRecorder::workerLoop()
 RecorderResult QuickRecorder::stop()
 {
     if (!isRecording()) return {false, "No recording is running.", path};
-    recording.store(false, std::memory_order_release);
+    recording.store(false, std::memory_order_seq_cst);
+    while(activeProducers.load(std::memory_order_seq_cst)!=0) std::this_thread::yield();
     if (worker.joinable()) worker.join();
     patchHeader();
     output.close();
@@ -158,7 +162,8 @@ RecorderResult QuickRecorder::stop()
 RecorderResult QuickRecorder::interruptForRecovery()
 {
     if (!isRecording()) return {false, "No recording is running.", path};
-    recording.store(false, std::memory_order_release);
+    recording.store(false, std::memory_order_seq_cst);
+    while(activeProducers.load(std::memory_order_seq_cst)!=0) std::this_thread::yield();
     if (worker.joinable()) worker.join();
     patchHeader();
     output.close();

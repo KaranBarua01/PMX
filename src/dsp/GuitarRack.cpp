@@ -3,7 +3,7 @@ namespace pmx::dsp
 {
 void GuitarRack::prepare(double sr, int maxBlock)
 {
-    eq.prepare(sr); chorus.prepare(sr); delay.prepare(sr,maxBlock,2000.0f); reverb.prepare(sr);
+    gate.prepare(sr); comp.prepare(sr); drive.prepare(sr); eq.prepare(sr); chorus.prepare(sr); delay.prepare(sr,maxBlock,2000.0f); reverb.prepare(sr);
 }
 void GuitarRack::processPreModels(float* b,int n) noexcept
 {

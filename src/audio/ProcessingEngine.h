@@ -1,5 +1,6 @@
 #pragma once
 #include <atomic>
+#include <array>
 #include <vector>
 #include "AudioSink.h"
 #include "SignalMetrics.h"
@@ -15,6 +16,13 @@
 
 namespace pmx::audio
 {
+enum class LoopCommand { record, play, overdub, stop, undo, redo, clear };
+struct LoopStatus
+{
+    looper::LooperState state{looper::LooperState::empty};
+    std::size_t recordedFrames{}, loopFrames{}, position{};
+    bool canUndo{}, canRedo{}, pendingCommands{};
+};
 class ProcessingEngine final : public AudioSink
 {
 public:
@@ -47,8 +55,19 @@ public:
     void setMetronomeLevel(float level) noexcept { metronome.setLevel(level); }
     void setInputGainDb(float db) noexcept;
     void setOutputGainDb(float db) noexcept;
+    bool requestLoopCommand(LoopCommand) noexcept;
+    [[nodiscard]] LoopStatus loopStatus() const noexcept;
+    void setLoopLevel(float level) noexcept { loopLevel.store(dsp::safeParameter(level,0,1,1)); }
 
 private:
+    void applyLoopCommands() noexcept;
+    void publishLoopStatus() noexcept;
+    std::array<LoopCommand,32> loopCommands{};
+    std::atomic<unsigned> commandWrite{0}, commandRead{0};
+    std::atomic<looper::LooperState> publishedLoopState{looper::LooperState::empty};
+    std::atomic<std::size_t> publishedRecorded{0}, publishedLength{0}, publishedPosition{0};
+    std::atomic<bool> publishedUndo{false}, publishedRedo{false};
+    std::atomic<float> loopLevel{1};
     std::atomic<bool> fxBypass { false };
     std::atomic<bool> muted { true };
     std::atomic<float> inputGain { 1.0f };
@@ -66,7 +85,7 @@ private:
     std::vector<float> loopScratchLeft;
     std::vector<float> loopScratchRight;
     std::vector<float> metronomeScratch;
-    double preparedSampleRate { 0.0 };
-    int preparedBlockSize { 0 };
+    std::atomic<double> preparedSampleRate { 0.0 };
+    std::atomic<int> preparedBlockSize { 0 };
 };
 } // namespace pmx::audio

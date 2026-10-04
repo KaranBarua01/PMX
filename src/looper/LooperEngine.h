@@ -1,5 +1,7 @@
 #pragma once
 #include <cstddef>
+#include <array>
+#include <cstdint>
 #include <vector>
 
 namespace pmx::looper
@@ -25,6 +27,7 @@ public:
     bool redo() noexcept;
     void clear() noexcept;
     void rewind() noexcept { position = 0; }
+    [[nodiscard]] std::size_t playbackPosition() const noexcept { return position; }
 
     void process(const float* inputLeft, const float* inputRight,
                  float* loopOutLeft, float* loopOutRight, int numFrames) noexcept;
@@ -40,7 +43,8 @@ public:
 private:
     void finaliseRecording(LooperState next) noexcept;
     void finaliseOverdub(LooperState next) noexcept;
-    void commitPreviousOverdub();
+    void settleLayer(std::size_t index) noexcept;
+    [[nodiscard]] float layerSample(std::size_t index, bool rightChannel) const noexcept;
 
     double rate { 0.0 };
     std::size_t capacity { 0 };
@@ -52,6 +56,11 @@ private:
     std::vector<float> right;
     std::vector<float> overdubLeft;
     std::vector<float> overdubRight;
+    struct LayerEpoch { std::uint64_t id{}; std::size_t references{}; bool applied{}; };
+    static constexpr std::size_t epochSlots = 256;
+    std::array<LayerEpoch, epochSlots> epochs{};
+    std::vector<std::uint64_t> layerTags;
+    std::uint64_t generation{0};
     bool hasOverdub { false };
     bool overdubApplied { false };
 };

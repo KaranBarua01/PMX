@@ -47,3 +47,11 @@ jobs:
             dist/PMX-0.2.0-alpha.1-x64.exe
             docs/testing/first-pocket-master-test.md
           if-no-files-found: error
+
+      - name: Upload UI verification renders
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PMX-native-ui-renders
+          path: build/ui-renders/*.png
+          if-no-files-found: ignore

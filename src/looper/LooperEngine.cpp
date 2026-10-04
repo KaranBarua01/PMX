@@ -13,6 +13,7 @@ void LooperEngine::prepare(double sampleRate, double maxSeconds)
     right.assign(capacity, 0.0f);
     overdubLeft.assign(capacity, 0.0f);
     overdubRight.assign(capacity, 0.0f);
+    layerTags.assign(capacity, 0);
     clear();
 }
 
@@ -68,25 +69,41 @@ bool LooperEngine::play() noexcept
     return currentState == LooperState::playing;
 }
 
-void LooperEngine::commitPreviousOverdub()
+float LooperEngine::layerSample(std::size_t index, bool rightChannel) const noexcept
 {
-    if (!hasOverdub) return;
-    if (overdubApplied)
-        for (std::size_t i = 0; i < loopLength; ++i)
+    const auto tag = layerTags[index];
+    const auto& epoch = epochs[tag % epochSlots];
+    return tag != 0 && epoch.id == tag && epoch.applied
+        ? (rightChannel ? overdubRight[index] : overdubLeft[index]) : 0.0f;
+}
+
+void LooperEngine::settleLayer(std::size_t index) noexcept
+{
+    const auto tag = layerTags[index];
+    if (tag == generation) return;
+    if (tag != 0)
+    {
+        auto& epoch = epochs[tag % epochSlots];
+        if (epoch.id == tag)
         {
-            left[i] += overdubLeft[i];
-            right[i] += overdubRight[i];
+            if (epoch.applied) { left[index] += overdubLeft[index]; right[index] += overdubRight[index]; }
+            if (epoch.references > 0) --epoch.references;
         }
-    std::fill(overdubLeft.begin(), overdubLeft.begin() + static_cast<std::ptrdiff_t>(loopLength), 0.0f);
-    std::fill(overdubRight.begin(), overdubRight.begin() + static_cast<std::ptrdiff_t>(loopLength), 0.0f);
-    hasOverdub = false;
-    overdubApplied = false;
+    }
+    layerTags[index] = 0;
 }
 
 bool LooperEngine::overdub()
 {
     if (loopLength == 0 || currentState != LooperState::playing) return false;
-    commitPreviousOverdub(); // control-thread operation; never called by process().
+    // Commit older layers lazily as samples are visited, never copy a whole loop.
+    const auto next = generation + 1;
+    auto& epoch = epochs[next % epochSlots];
+    if (epoch.references != 0) return false;
+    generation = next;
+    epoch = {generation, 0, true};
+    hasOverdub = false;
+    overdubApplied = false;
     currentState = LooperState::overdubbing;
     return true;
 }
@@ -115,6 +132,7 @@ bool LooperEngine::undo() noexcept
 {
     if (!canUndo() || (currentState != LooperState::playing && currentState != LooperState::stopped)) return false;
     overdubApplied = false;
+    epochs[generation % epochSlots].applied = false;
     return true;
 }
 
@@ -122,6 +140,7 @@ bool LooperEngine::redo() noexcept
 {
     if (!canRedo() || (currentState != LooperState::playing && currentState != LooperState::stopped)) return false;
     overdubApplied = true;
+    epochs[generation % epochSlots].applied = true;
     return true;
 }
 
@@ -133,6 +152,8 @@ void LooperEngine::clear() noexcept
     position = 0;
     hasOverdub = false;
     overdubApplied = false;
+    ++generation;
+    epochs.fill({}); // fixed metadata; independent of 120-second audio storage
 }
 
 void LooperEngine::process(const float* inputLeft, const float* inputRight,
@@ -150,6 +171,7 @@ void LooperEngine::process(const float* inputLeft, const float* inputRight,
             {
                 left[recordPosition] = inputLeft ? inputLeft[frame] : 0.0f;
                 right[recordPosition] = inputRight ? inputRight[frame] : (inputLeft ? inputLeft[frame] : 0.0f);
+                layerTags[recordPosition] = 0;
                 ++recordPosition;
             }
             if (recordPosition >= capacity)
@@ -160,13 +182,20 @@ void LooperEngine::process(const float* inputLeft, const float* inputRight,
         if ((currentState == LooperState::playing || currentState == LooperState::overdubbing) && loopLength > 0)
         {
             const auto index = position;
-            const float layerL = hasOverdub && overdubApplied ? overdubLeft[index] : 0.0f;
-            const float layerR = hasOverdub && overdubApplied ? overdubRight[index] : 0.0f;
+            settleLayer(index);
+            const float layerL = layerSample(index, false);
+            const float layerR = layerSample(index, true);
             loopOutLeft[frame] = left[index] + layerL;
             loopOutRight[frame] = right[index] + layerR;
 
             if (currentState == LooperState::overdubbing)
             {
+                if (layerTags[index] != generation)
+                {
+                    layerTags[index] = generation;
+                    overdubLeft[index] = overdubRight[index] = 0.0f;
+                    ++epochs[generation % epochSlots].references;
+                }
                 overdubLeft[index] += inputLeft ? inputLeft[frame] : 0.0f;
                 overdubRight[index] += inputRight ? inputRight[frame] : (inputLeft ? inputLeft[frame] : 0.0f);
             }
@@ -184,8 +213,8 @@ LoopSnapshot LooperEngine::snapshot() const
     result.right.resize(loopLength);
     for (std::size_t i = 0; i < loopLength; ++i)
     {
-        const float layerL = hasOverdub && overdubApplied ? overdubLeft[i] : 0.0f;
-        const float layerR = hasOverdub && overdubApplied ? overdubRight[i] : 0.0f;
+        const float layerL = layerSample(i, false);
+        const float layerR = layerSample(i, true);
         result.left[i] = left[i] + layerL;
         result.right[i] = right[i] + layerR;
     }

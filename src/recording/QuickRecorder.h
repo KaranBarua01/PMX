@@ -49,6 +49,7 @@ private:
     std::atomic<std::uint64_t> accepted { 0 };
     std::atomic<std::uint64_t> dropped { 0 };
     std::atomic<bool> recording { false };
+    std::atomic<unsigned> activeProducers {0};
     std::thread worker;
     std::ofstream output;
     std::filesystem::path path;

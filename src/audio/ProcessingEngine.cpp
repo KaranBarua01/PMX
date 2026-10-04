@@ -8,12 +8,12 @@ ProcessingEngine::ProcessingEngine() : metronome(tempoService) {}
 
 void ProcessingEngine::setInputGainDb(float db) noexcept
 {
-    inputGain.store(std::pow(10.0f, db / 20.0f), std::memory_order_relaxed);
+    if(std::isfinite(db)) inputGain.store(std::pow(10.0f, std::clamp(db,-60.0f,24.0f) / 20.0f), std::memory_order_relaxed);
 }
 
 void ProcessingEngine::setOutputGainDb(float db) noexcept
 {
-    outputGain.store(std::pow(10.0f, db / 20.0f), std::memory_order_relaxed);
+    if(std::isfinite(db)) outputGain.store(std::pow(10.0f, std::clamp(db,-60.0f,6.0f) / 20.0f), std::memory_order_relaxed);
 }
 
 void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, int)
@@ -31,12 +31,16 @@ void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, i
     loopScratchRight.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     metronomeScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     muted.store(true, std::memory_order_relaxed);
+    commandRead.store(commandWrite.load());
+    publishLoopStatus();
 }
 
 void ProcessingEngine::stopped() noexcept
 {
     muted.store(true, std::memory_order_relaxed);
     signalMetrics.reset();
+    looperEngine.stop();
+    publishLoopStatus();
 }
 
 void ProcessingEngine::process(const float* const* inputs, int numInputs,
@@ -44,6 +48,12 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
                                int numSamples) noexcept
 {
     if (outputs == nullptr || numOutputs <= 0 || numSamples <= 0) return;
+    if (numSamples>preparedBlockSize.load() || preparedBlockSize.load()<=0)
+    {
+        for(int c=0;c<numOutputs;++c) if(outputs[c]) std::fill_n(outputs[c],numSamples,0.0f);
+        return;
+    }
+    applyLoopCommands();
 
     float inPeak = 0.0f;
     const bool hasLiveInput = inputs != nullptr && numInputs > 0 && inputs[0] != nullptr;
@@ -93,9 +103,9 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
             const float* liveR = numOutputs > 1 && outputs[1] != nullptr ? outputs[1] : outputs[0];
             looperEngine.process(liveL, liveR, loopScratchLeft.data(), loopScratchRight.data(), numSamples);
             if (outputs[0] != nullptr)
-                for (int i = 0; i < numSamples; ++i) outputs[0][i] += loopScratchLeft[static_cast<std::size_t>(i)];
+                for (int i = 0; i < numSamples; ++i) outputs[0][i] += loopScratchLeft[static_cast<std::size_t>(i)]*loopLevel.load();
             if (numOutputs > 1 && outputs[1] != nullptr)
-                for (int i = 0; i < numSamples; ++i) outputs[1][i] += loopScratchRight[static_cast<std::size_t>(i)];
+                for (int i = 0; i < numSamples; ++i) outputs[1][i] += loopScratchRight[static_cast<std::size_t>(i)]*loopLevel.load();
             for (int c = 2; c < numOutputs; ++c)
                 if (outputs[c] != nullptr && outputs[0] != nullptr) std::copy_n(outputs[0], numSamples, outputs[c]);
         }
@@ -130,5 +140,52 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
             for (int i = 0; i < numSamples; ++i)
                 outPeak = std::max(outPeak, std::abs(outputs[c][i]));
     signalMetrics.updateOutput(outPeak);
+    publishLoopStatus();
+}
+
+bool ProcessingEngine::requestLoopCommand(LoopCommand command) noexcept
+{
+    const auto write=commandWrite.load(std::memory_order_relaxed);
+    const auto next=(write+1)%loopCommands.size();
+    if(next==commandRead.load(std::memory_order_acquire)) return false;
+    loopCommands[write]=command;
+    commandWrite.store(static_cast<unsigned>(next),std::memory_order_release);
+    return true;
+}
+
+void ProcessingEngine::applyLoopCommands() noexcept
+{
+    auto read=commandRead.load(std::memory_order_relaxed);
+    const auto write=commandWrite.load(std::memory_order_acquire);
+    while(read!=write)
+    {
+        switch(loopCommands[read])
+        {
+            case LoopCommand::record: looperEngine.record(); break;
+            case LoopCommand::play: looperEngine.play(); break;
+            case LoopCommand::overdub: looperEngine.overdub(); break;
+            case LoopCommand::stop: looperEngine.stop(); break;
+            case LoopCommand::undo: looperEngine.undo(); break;
+            case LoopCommand::redo: looperEngine.redo(); break;
+            case LoopCommand::clear: looperEngine.clear(); break;
+        }
+        read=static_cast<unsigned>((read+1)%loopCommands.size());
+    }
+    commandRead.store(read,std::memory_order_release);
+}
+
+void ProcessingEngine::publishLoopStatus() noexcept
+{
+    publishedRecorded.store(looperEngine.recordedFrames());
+    publishedLength.store(looperEngine.loopFrames());
+    publishedPosition.store(looperEngine.playbackPosition());
+    publishedUndo.store(looperEngine.canUndo()); publishedRedo.store(looperEngine.canRedo());
+    publishedLoopState.store(looperEngine.state(),std::memory_order_release);
+}
+
+LoopStatus ProcessingEngine::loopStatus() const noexcept
+{
+    return {publishedLoopState.load(std::memory_order_acquire), publishedRecorded.load(), publishedLength.load(), publishedPosition.load(),
+            publishedUndo.load(),publishedRedo.load(),commandRead.load()!=commandWrite.load()};
 }
 } // namespace pmx::audio

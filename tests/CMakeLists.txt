@@ -153,3 +153,13 @@ target_include_directories(pmx_runtime_policy_tests PRIVATE "${PROJECT_SOURCE_DI
 target_sources(pmx_runtime_policy_tests PRIVATE "${PROJECT_SOURCE_DIR}/src/app/RuntimePolicy.cpp")
 target_compile_features(pmx_runtime_policy_tests PRIVATE cxx_std_20)
 add_test(NAME pmx.runtime_policy COMMAND pmx_runtime_policy_tests)
+
+add_executable(pmx_effect_safety_tests dsp/EffectSafetyTests.cpp "${PROJECT_SOURCE_DIR}/src/dsp/effects/Eq.cpp" "${PROJECT_SOURCE_DIR}/src/dsp/effects/Gate.cpp" "${PROJECT_SOURCE_DIR}/src/dsp/effects/Compressor.cpp" "${PROJECT_SOURCE_DIR}/src/dsp/effects/Drive.cpp")
+target_include_directories(pmx_effect_safety_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(pmx_effect_safety_tests PRIVATE cxx_std_20)
+add_test(NAME pmx.effect_safety COMMAND pmx_effect_safety_tests)
+
+add_executable(pmx_sound_state_tests presets/SoundStateTests.cpp "${PROJECT_SOURCE_DIR}/src/presets/PresetStore.cpp")
+target_include_directories(pmx_sound_state_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(pmx_sound_state_tests PRIVATE cxx_std_20)
+add_test(NAME pmx.sound_state COMMAND pmx_sound_state_tests)

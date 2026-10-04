@@ -106,5 +106,30 @@ int main()
     engine.setOutputGainDb(-6.0206f);
     engine.process(gainInputs, 1, gainOutputs, 2, 1);
     if (std::abs(gainL[0] - 0.2f) > 0.002f) return 17;
+    engine.setInputGainDb(std::numeric_limits<float>::quiet_NaN());
+    engine.process(gainInputs, 1, gainOutputs, 2, 1);
+    if (std::abs(gainL[0]-0.2f)>0.002f) return 18;
+    // Unexpected oversized blocks must mute safely rather than overrun prepared storage.
+    std::vector<float> oversized(129,0.5f), oversizedOutput(129,1.0f);
+    const float* oversizedInputs[]{oversized.data()};
+    float* oversizedOutputs[]{oversizedOutput.data()};
+    engine.process(oversizedInputs,1,oversizedOutputs,1,129);
+    for(float v:oversizedOutput) if(v!=0) return 19;
+    engine.prepare(44100,128,1,2);
+    engine.setMuted(false);
+    engine.setFxBypass(true);
+    engine.setInputGainDb(0);
+    engine.setOutputGainDb(0);
+    if(!engine.requestLoopCommand(pmx::audio::LoopCommand::record)) return 20;
+    if(engine.loopStatus().state != pmx::looper::LooperState::empty) return 21;
+    engine.process(takeInputs,1,outputs,2,4);
+    if(engine.loopStatus().recordedFrames != 4) return 22;
+    engine.requestLoopCommand(pmx::audio::LoopCommand::stop);
+    engine.process(silenceInputs,1,outputs,2,4);
+    if(engine.loopStatus().state != pmx::looper::LooperState::stopped) return 23;
+    for(int i=0;i<31;++i) if(!engine.requestLoopCommand(pmx::audio::LoopCommand::clear)) return 24;
+    if(engine.requestLoopCommand(pmx::audio::LoopCommand::clear)) return 25;
+    engine.process(silenceInputs,1,outputs,2,4);
+    if(engine.loopStatus().state != pmx::looper::LooperState::empty) return 26;
     return 0;
 }

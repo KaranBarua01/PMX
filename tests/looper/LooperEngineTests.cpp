@@ -72,5 +72,29 @@ int main()
     limit.process(ones.data(),ones.data(),limitedOutL.data(),limitedOutR.data(),6);
     if(limit.loopFrames()!=4 || limit.state()!=LooperState::playing) return 20;
 
+    // Clearing a loop must discard old overdub samples, including a partial take.
+    looper.clear();
+    looper.record();
+    looper.process(inL.data(), inR.data(), outL.data(), outR.data(), 4);
+    looper.play();
+    looper.overdub();
+    looper.process(addL.data(), addR.data(), outL.data(), outR.data(), 2);
+    looper.play();
+    looper.rewind();
+    looper.process(nullptr, nullptr, outL.data(), outR.data(), 4);
+    if (!near(outL[0], 0.15f) || !near(outL[2], 0.3f)) return 21;
+    looper.undo();
+    looper.rewind();
+    looper.process(nullptr, nullptr, outL.data(), outR.data(), 4);
+    if (!near(outL[0], 0.1f) || !near(outL[2], 0.3f)) return 22;
+    looper.redo();
+    looper.overdub();
+    looper.process(addL.data(), addR.data(), outL.data(), outR.data(), 1);
+    looper.stop();
+    const auto partial = looper.snapshot();
+    if (!near(partial.left[0], 0.2f) || !near(partial.left[1], 0.25f)) return 23;
+    looper.undo();
+    const auto undone = looper.snapshot();
+    if (!near(undone.left[0], 0.15f) || !near(undone.left[1], 0.25f)) return 24;
     return 0;
 }

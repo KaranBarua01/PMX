@@ -278,8 +278,8 @@ std::vector<Preset> PresetStore::list() const
 std::vector<std::string> PresetStore::missingAssets(const Preset& preset) const
 {
     std::vector<std::string> missing;
-    if (!preset.nam.id.empty() && (preset.nam.path.empty() || !std::filesystem::exists(preset.nam.path))) missing.push_back("NAM");
-    if (!preset.ir.id.empty() && (preset.ir.path.empty() || !std::filesystem::exists(preset.ir.path))) missing.push_back("IR");
+    if ((!preset.nam.id.empty() || !preset.nam.path.empty()) && (preset.nam.path.empty() || !std::filesystem::exists(preset.nam.path))) missing.push_back("NAM");
+    if ((!preset.ir.id.empty() || !preset.ir.path.empty()) && (preset.ir.path.empty() || !std::filesystem::exists(preset.ir.path))) missing.push_back("IR");
     return missing;
 }
 

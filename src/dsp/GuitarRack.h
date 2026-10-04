@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <atomic>
 #include <string_view>
 #include "effects/Gate.h"
 #include "effects/Compressor.h"
@@ -27,11 +28,12 @@ public:
     Eq& eqEffect() noexcept { return eq; }
     Gate& gateEffect() noexcept { return gate; }
     Compressor& compressorEffect() noexcept { return comp; }
+    Drive& driveEffect() noexcept { return drive; }
     void processPreModels(float* mono, int numSamples) noexcept;
     void processPostModels(float* mono, int numSamples) noexcept;
     void process(float* mono, int numSamples) noexcept;
 private:
-    std::array<bool, static_cast<unsigned>(RackModule::count)> active{};
+    std::array<std::atomic<bool>, static_cast<unsigned>(RackModule::count)> active{};
     Gate gate; Compressor comp; Drive drive; Eq eq; Chorus chorus; Delay delay; Reverb reverb;
 };
 } // namespace pmx::dsp

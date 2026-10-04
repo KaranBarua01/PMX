@@ -1,6 +1,10 @@
 #include <array>
 #include <filesystem>
 #include <fstream>
+#include <thread>
+#include <vector>
+#include <atomic>
+#include <chrono>
 #include "recording/QuickRecorder.h"
 
 namespace fs = std::filesystem;
@@ -43,6 +47,20 @@ int main()
     const auto bad=recorder.start(dir/"missing-parent"/"x"/"take.wav");
     if(bad.ok || bad.error.empty()) return 9;
 
+    // Stop may race an in-flight producer; every accepted sample must reach the WAV.
+    recorder.prepare(48000,2,120);
+    const auto racing=dir/"concurrent-stop.wav";
+    if(!recorder.start(racing).ok) return 10;
+    recorder.push(left.data(),right.data(),100);
+    std::vector<float> longBlock(4000000,0.1f);
+    std::atomic<bool> entered{false};
+    std::thread producer([&]{entered.store(true);recorder.push(longBlock.data(),longBlock.data(),4000000);});
+    while(!entered.load()) std::this_thread::yield();
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::microseconds(100);
+    while(std::chrono::steady_clock::now()<deadline) {}
+    recorder.stop();
+    producer.join();
+    if(fs::file_size(racing)!=44+recorder.framesAccepted()*6) return 11;
     fs::remove_all(dir);
     return 0;
 }
