@@ -19,7 +19,11 @@ int main()
     const auto fallback = pmx::app::RuntimePolicy::preferredPocketMaster(devices);
     if (!fallback || fallback->sampleRate != 48000.0 || fallback->bufferSize != 256) return 6;
 
+    devices[1] = {"Sonicake USB Audio Device", true, 2, 2, {44100.0, 48000.0}, {128, 256}};
+    const auto sonicake = pmx::app::RuntimePolicy::preferredPocketMaster(devices);
+    if (!sonicake || sonicake->deviceName != "Sonicake USB Audio Device") return 7;
+
     devices.erase(devices.begin() + 1);
-    if (pmx::app::RuntimePolicy::preferredPocketMaster(devices)) return 7;
+    if (pmx::app::RuntimePolicy::preferredPocketMaster(devices)) return 8;
     return 0;
 }
