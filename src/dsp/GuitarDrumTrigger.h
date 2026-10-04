@@ -42,6 +42,7 @@ private:
     int cooldownSamples {};
     float slowEnvelope {};
     float previousAbs {};
+    bool wasEnabled {};
 
     float kickEnvelope {}, snareEnvelope {}, closedHatEnvelope {}, openHatEnvelope {}, tomEnvelope {}, crashEnvelope {};
     double kickPhase {}, snarePhase {}, tomPhase {}, crashPhase {};
