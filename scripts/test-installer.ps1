@@ -1,5 +1,12 @@
 $ErrorActionPreference = 'Stop'
-$installer = (Resolve-Path 'dist/PMX-0.2.0-alpha.2-x64.exe').Path
+$version = if ($env:PMX_VERSION) { $env:PMX_VERSION } else { '0.2.0-alpha.2' }
+$installerPath = "dist/PMX-$version-x64.exe"
+if (!(Test-Path -LiteralPath $installerPath)) {
+    $candidates = @(Get-ChildItem 'dist/PMX-*-x64.exe' -File)
+    if ($candidates.Count -ne 1) { throw "Expected one PMX installer, found $($candidates.Count)." }
+    $installerPath = $candidates[0].FullName
+}
+$installer = (Resolve-Path -LiteralPath $installerPath).Path
 $installFolder = Join-Path $env:RUNNER_TEMP 'PMX-installer-test'
 $userData = Join-Path $env:LOCALAPPDATA 'PMX'
 $sentinel = Join-Path $userData 'installer-preservation-test.txt'
