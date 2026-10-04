@@ -45,6 +45,7 @@ target_sources(pmx_processing_engine_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/src/audio/TempoService.cpp"
     "${PROJECT_SOURCE_DIR}/src/dsp/Metronome.cpp"
     "${PROJECT_SOURCE_DIR}/src/dsp/RhythmDrumMachine.cpp"
+    "${PROJECT_SOURCE_DIR}/src/dsp/GuitarDrumTrigger.cpp"
     "${PROJECT_SOURCE_DIR}/src/analysis/TunerTap.cpp")
 target_compile_features(pmx_processing_engine_tests PRIVATE cxx_std_20)
 add_test(NAME pmx.processing_engine COMMAND pmx_processing_engine_tests)
@@ -172,3 +173,10 @@ add_executable(pmx_rhythm_drum_tests dsp/RhythmDrumMachineTests.cpp
 target_include_directories(pmx_rhythm_drum_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(pmx_rhythm_drum_tests PRIVATE cxx_std_20)
 add_test(NAME pmx.rhythm_drums COMMAND pmx_rhythm_drum_tests)
+
+
+add_executable(pmx_guitar_drum_trigger_tests dsp/GuitarDrumTriggerTests.cpp
+    "${PROJECT_SOURCE_DIR}/src/dsp/GuitarDrumTrigger.cpp")
+target_include_directories(pmx_guitar_drum_trigger_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(pmx_guitar_drum_trigger_tests PRIVATE cxx_std_20)
+add_test(NAME pmx.guitar_drum_trigger COMMAND pmx_guitar_drum_trigger_tests)
