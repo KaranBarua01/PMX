@@ -70,22 +70,22 @@ void FirstRunWizard::refresh()
     const auto s = setup.step();
     if (s == state::SetupStep::welcome)
     {
-        stepIndicator.setText("●  SET UP     ○  CHECK AUDIO     ○  PLAY", juce::dontSendNotification);
-        icon.setText("◉", juce::dontSendNotification);
+        stepIndicator.setText("[1] SET UP     [ ] CHECK AUDIO     [ ] PLAY", juce::dontSendNotification);
+        icon.setText("PMX", juce::dontSendNotification);
         title.setText("WELCOME TO PMX", juce::dontSendNotification);
         subtitle.setText("Plug your guitar into Pocket Master and connect Pocket Master to this PC.", juce::dontSendNotification);
-        deviceSummary.setText("Guitar  →  Pocket Master  →  USB  →  This PC", juce::dontSendNotification);
+        deviceSummary.setText("Guitar  ->  Pocket Master  ->  USB  ->  This PC", juce::dontSendNotification);
         primary.setButtonText("CONTINUE");
         secondary.setVisible(false);
         hint.setText("PMX will keep the Pocket Master as audio I/O only.", juce::dontSendNotification);
     }
     else if (s == state::SetupStep::deviceFound)
     {
-        stepIndicator.setText("○  SET UP     ●  CHECK AUDIO     ○  PLAY", juce::dontSendNotification);
-        icon.setText("✓", juce::dontSendNotification);
+        stepIndicator.setText("[x] SET UP     [2] CHECK AUDIO     [ ] PLAY", juce::dontSendNotification);
+        icon.setText("OK", juce::dontSendNotification);
         title.setText("POCKET MASTER FOUND", juce::dontSendNotification);
         subtitle.setText("Input and output are ready. Test the return path before playing.", juce::dontSendNotification);
-        deviceSummary.setText("INPUT ✓      OUTPUT ✓      ASIO ✓", juce::dontSendNotification);
+        deviceSummary.setText("INPUT OK      OUTPUT OK      ASIO OK", juce::dontSendNotification);
         secondary.setButtonText("TEST AUDIO");
         secondary.setVisible(true);
         primary.setButtonText(setup.audioTestPassed() ? "CONTINUE" : "CONTINUE");
@@ -94,8 +94,8 @@ void FirstRunWizard::refresh()
     }
     else
     {
-        stepIndicator.setText("○  SET UP     ○  CHECK AUDIO     ●  PLAY", juce::dontSendNotification);
-        icon.setText("✓", juce::dontSendNotification);
+        stepIndicator.setText("[x] SET UP     [x] CHECK AUDIO     [3] PLAY", juce::dontSendNotification);
+        icon.setText("OK", juce::dontSendNotification);
         title.setText("YOU'RE READY", juce::dontSendNotification);
         subtitle.setText("Your PMX audio foundation is ready for the first playing test.", juce::dontSendNotification);
         deviceSummary.setText("DREAM CLEAN", juce::dontSendNotification);
