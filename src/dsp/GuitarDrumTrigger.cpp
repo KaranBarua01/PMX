@@ -58,9 +58,8 @@ float GuitarDrumTrigger::correlationAtLag(int lag) const noexcept
 
 GuitarDrumPad GuitarDrumTrigger::classifyCapturedPitch() const noexcept
 {
-    float best = -2.0f;
-    float second = -2.0f;
-    int bestIndex = -1;
+    std::array<float, openStringHz.size()> scores {};
+    float globalBest = -2.0f;
 
     for (int stringIndex = 0; stringIndex < static_cast<int>(openStringHz.size()); ++stringIndex)
     {
@@ -70,20 +69,22 @@ GuitarDrumPad GuitarDrumTrigger::classifyCapturedPitch() const noexcept
         for (int lag = static_cast<int>(std::lround(targetLag)) - spread;
              lag <= static_cast<int>(std::lround(targetLag)) + spread; ++lag)
             stringBest = std::max(stringBest, correlationAtLag(lag));
-
-        if (stringBest > best)
-        {
-            second = best;
-            best = stringBest;
-            bestIndex = stringIndex;
-        }
-        else if (stringBest > second)
-            second = stringBest;
+        scores[static_cast<std::size_t>(stringIndex)] = stringBest;
+        globalBest = std::max(globalBest, stringBest);
     }
 
-    if (bestIndex < 0 || best < 0.24f || best - second < 0.015f)
-        return GuitarDrumPad::none;
-    return static_cast<GuitarDrumPad>(bestIndex);
+    if (globalBest < 0.30f) return GuitarDrumPad::none;
+
+    // Higher strings naturally correlate at integer multiples of their period
+    // (for example B3 can also correlate near the low-E period). Among nearly
+    // equal candidates, prefer the shortest period/highest string to avoid
+    // octave/subharmonic misclassification.
+    constexpr float harmonicTolerance = 0.035f;
+    for (int stringIndex = static_cast<int>(openStringHz.size()) - 1; stringIndex >= 0; --stringIndex)
+        if (scores[static_cast<std::size_t>(stringIndex)] >= globalBest - harmonicTolerance)
+            return static_cast<GuitarDrumPad>(stringIndex);
+
+    return GuitarDrumPad::none;
 }
 
 void GuitarDrumTrigger::trigger(GuitarDrumPad pad) noexcept
