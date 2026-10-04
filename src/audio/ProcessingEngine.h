@@ -9,6 +9,7 @@
 #include "dsp/OutputProtector.h"
 #include "dsp/GuitarRack.h"
 #include "dsp/Metronome.h"
+#include "dsp/RhythmDrumMachine.h"
 #include "ir/IrProcessor.h"
 #include "nam/NamProcessor.h"
 #include "looper/LooperEngine.h"
@@ -53,6 +54,11 @@ public:
     const recording::QuickRecorder& recorder() const noexcept { return quickRecorder; }
     void setMetronomeEnabled(bool enabled) noexcept { metronome.setEnabled(enabled); }
     void setMetronomeLevel(float level) noexcept { metronome.setLevel(level); }
+    void setRhythmEnabled(bool enabled) noexcept { rhythmDrums.setEnabled(enabled); }
+    void setRhythmLevel(float level) noexcept { rhythmDrums.setLevel(level); }
+    void setRhythmPattern(int pattern) noexcept { rhythmDrums.setPattern(pattern); }
+    [[nodiscard]] bool rhythmEnabled() const noexcept { return rhythmDrums.isEnabled(); }
+    [[nodiscard]] int rhythmPattern() const noexcept { return rhythmDrums.currentPattern(); }
     void setInputGainDb(float db) noexcept;
     void setOutputGainDb(float db) noexcept;
     bool requestLoopCommand(LoopCommand) noexcept;
@@ -83,12 +89,14 @@ private:
     ir::IrProcessor irProcessor;
     TempoService tempoService;
     dsp::Metronome metronome;
+    dsp::RhythmDrumMachine rhythmDrums;
     analysis::TunerTap tunerCapture;
     looper::LooperEngine looperEngine;
     recording::QuickRecorder quickRecorder;
     std::vector<float> loopScratchLeft;
     std::vector<float> loopScratchRight;
     std::vector<float> metronomeScratch;
+    std::vector<float> rhythmScratch;
     std::atomic<double> preparedSampleRate { 0.0 };
     std::atomic<int> preparedBlockSize { 0 };
 };
