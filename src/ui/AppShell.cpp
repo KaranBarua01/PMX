@@ -22,11 +22,11 @@ AppShell::AppShell()
     nav[2]->onClick = [this] { select(Page::presets); };
     nav[3]->onClick = [this] { select(Page::settings); };
 
-    status.setText("PMX 0.2 α  •  OFFLINE", juce::dontSendNotification);
+    status.setText("PMX 0.2 alpha  |  OFFLINE", juce::dontSendNotification);
     status.setJustificationType(juce::Justification::centredRight);
     status.setColour(juce::Label::textColourId, juce::Colour(Theme::mutedText));
     addAndMakeVisible(status);
-    footer.setText("Pocket Master is audio I/O only · All processing stays in PMX · Audio stays on this computer",juce::dontSendNotification);
+    footer.setText("Pocket Master is audio I/O only | All processing stays in PMX | Audio stays on this computer",juce::dontSendNotification);
     footer.setColour(juce::Label::textColourId,juce::Colour(Theme::mutedText));
     footer.setFont(juce::FontOptions(10.0f));
     addAndMakeVisible(footer);
