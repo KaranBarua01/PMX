@@ -75,6 +75,7 @@ if(PMX_BUILD_GUI)
         src/audio/TempoService.cpp
         src/dsp/Metronome.cpp
         src/dsp/RhythmDrumMachine.cpp
+        src/dsp/GuitarDrumTrigger.cpp
         src/ui/components/TunerView.cpp
         src/assets/AssetLibrary.cpp
         src/nam/NamProcessor.cpp
