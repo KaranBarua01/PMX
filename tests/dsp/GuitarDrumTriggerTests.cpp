@@ -20,28 +20,25 @@ void makePluck(std::array<float,N>& buffer,double frequency,double sampleRate)
 int main()
 {
     pmx::dsp::GuitarDrumTrigger trigger;
-    trigger.prepare(44100.0);
-    trigger.setEnabled(true);
-
     std::array<float,1536> input{}, output{};
-    makePluck(input,82.4069,44100.0);
-    trigger.process(input.data(),output.data(),static_cast<int>(input.size()));
-    if(trigger.lastDetectedString()!=static_cast<int>(pmx::dsp::GuitarDrumPad::lowE)) return 1;
-    if(*std::max_element(output.begin(),output.end())<=0.001f) return 2;
-
-    trigger.prepare(44100.0);
-    trigger.setEnabled(true);
-    input.fill(0.0f); output.fill(0.0f);
-    makePluck(input,110.0,44100.0);
-    trigger.process(input.data(),output.data(),static_cast<int>(input.size()));
-    if(trigger.lastDetectedString()!=static_cast<int>(pmx::dsp::GuitarDrumPad::a)) return 3;
+    constexpr std::array<double,6> frequencies{82.4069,110.0,146.832,195.998,246.942,329.628};
+    for(std::size_t index=0;index<frequencies.size();++index)
+    {
+        trigger.prepare(44100.0);
+        trigger.setEnabled(true);
+        input.fill(0.0f); output.fill(0.0f);
+        makePluck(input,frequencies[index],44100.0);
+        trigger.process(input.data(),output.data(),static_cast<int>(input.size()));
+        if(trigger.lastDetectedString()!=static_cast<int>(index)) return static_cast<int>(1+index);
+        if(*std::max_element(output.begin(),output.end())<=0.001f) return 10+static_cast<int>(index);
+    }
 
     trigger.prepare(44100.0);
     trigger.setEnabled(false);
     input.fill(0.2f); output.fill(0.0f);
     trigger.process(input.data(),output.data(),static_cast<int>(input.size()));
-    if(trigger.lastDetectedString()!=-1) return 4;
-    for(float v:output) if(std::abs(v)>0.000001f) return 5;
+    if(trigger.lastDetectedString()!=-1) return 20;
+    for(float v:output) if(std::abs(v)>0.000001f) return 21;
 
     return 0;
 }
