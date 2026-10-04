@@ -52,7 +52,7 @@ std::filesystem::path PmxRuntime::appDataDirectory() const
 void PmxRuntime::wireUi()
 {
     shell.setup().onDiscoverDevice=[this]{discoverAndOpen();};
-    shell.setup().onTestAudio=[this]{enableMonitoring(); if(connected) shell.setup().setAudioTestPassed(true);};
+    shell.setup().onTestAudio=[this]{enableMonitoring(); if(connected&&monitoring) shell.setup().setAudioTestPassed(true);};
     shell.setup().onFinished=[this]{shell.showSetup(false);};
 
     shell.settings().onApply=[this]{
@@ -162,12 +162,14 @@ bool PmxRuntime::applySelection(const audio::AudioDeviceSelection& selection,boo
     shell.live().setStatusText("● POCKET MASTER CONNECTED    "+std::to_string(static_cast<int>(selection.sampleRate/1000.0))+" kHz • "+std::to_string(selection.bufferSize)+" samples",true);
     shell.setTopStatus("PMX 0.2 α  •  CONNECTED",true);
     shell.live().setMutedVisual(true);
+    applyPreset(sound.toPreset(currentPresetId,currentPresetName,currentCategory));
     updateDiagnostics();
     return true;
 }
 
 void PmxRuntime::enableMonitoring()
 {
+    if(assetLoad.valid()){showInfo("Sound loading","Wait for the sound to finish loading before enabling monitoring.");return;}
     if(!connected)
     {
         discoverAndOpen();
@@ -191,7 +193,7 @@ void PmxRuntime::updateDiagnostics()
         input.sampleRate=currentSelection->sampleRate;
         input.bufferSize=currentSelection->bufferSize;
     }
-    if(auto* device=audioHost.deviceManager().getCurrentAudioDevice())
+    if(auto* device=audioHost.currentDevice())
     {
         input.inputLatencySamples=device->getInputLatencyInSamples();
         input.outputLatencySamples=device->getOutputLatencyInSamples();
@@ -243,7 +245,7 @@ void PmxRuntime::loadIr(const std::filesystem::path& path)
         PreparedAsset result;result.path=path;result.rate=sr;result.block=block;
         auto loaded=ir::IrProcessor::loadWav(path,sr,8192);
         if(!loaded.ok)result.error=loaded.error;
-        else{result.ir=std::make_unique<ir::IrProcessor>();result.ir->setPrepared(std::move(loaded.data));}
+        else{result.ir=std::make_unique<ir::IrProcessor>();result.ir->setPrepared(std::move(loaded.data),block);}
         return result;
     });
 }
@@ -289,7 +291,7 @@ void PmxRuntime::choosePreset(const std::string& id)
 {
     const auto it=std::find_if(presetLibrary.begin(),presetLibrary.end(),[&](const auto& p){return p.id==id;});
     if(it==presetLibrary.end())return;
-    applyPreset(*it);shell.presets().setCurrent(id);shell.goTo(ui::AppShell::Page::live);
+    applyPreset(*it);shell.goTo(ui::AppShell::Page::live);
 }
 void PmxRuntime::applyEffect(std::size_t i,const presets::EffectSettings& settings)
 {
@@ -307,21 +309,31 @@ void PmxRuntime::applyEffect(std::size_t i,const presets::EffectSettings& settin
         case 8:rack.reverbEffect().setDecay(v[0]/100);rack.reverbEffect().setTone(v[1]/100);rack.reverbEffect().setMix(v[2]/100);break;
     }
 }
+void PmxRuntime::commitPreset(const presets::Preset& preset)
+{
+    sound=presets::SoundState::fromPreset(preset);
+    for(std::size_t i=0;i<9;++i)applyEffect(i,sound.effects[i]);
+    currentPresetName=preset.displayName;currentPresetId=preset.id;currentCategory=preset.category;
+    currentNamPath=preset.nam.path;currentIrPath=preset.ir.path;
+    shell.live().setPresetName(currentPresetName);shell.live().setSoundState(sound);shell.presets().setCurrent(preset.id);
+    shell.live().setNamName(preset.nam.path.empty()?"IMPORT AN AMP":preset.nam.path.stem().string());
+    shell.live().setIrName(preset.ir.path.empty()?"IMPORT A CABINET":preset.ir.path.stem().string());
+}
 void PmxRuntime::applyPreset(const presets::Preset& preset)
 {
     if(assetLoad.valid()){showInfo("Sound loading","Wait for the current import to finish before choosing another preset.");return;}
-    sound=presets::SoundState::fromPreset(preset);
     const auto missing=presetStore.missingAssets(preset);
-    if(!missing.empty()){juce::String warning;for(const auto& item:missing)warning+=juce::String(item)+"\n";showInfo("Preset needs a file",warning+"Import the missing file to restore this sound.",juce::MessageBoxIconType::WarningIcon);}
-    // Clear old references when a preset has no model. Loaded processing is bypassed until its new file is ready.
-    for(std::size_t i=0;i<9;++i)applyEffect(i,sound.effects[i]);
-    currentPresetName=preset.displayName;shell.live().setPresetName(currentPresetName);shell.live().setSoundState(sound);
-    engine.rack().setEnabled(dsp::RackModule::nam,false);engine.rack().setEnabled(dsp::RackModule::ir,false);
-    if(!preset.nam.path.empty()&&std::filesystem::exists(preset.nam.path))loadNam(preset.nam.path);
-    // A second asset is queued after the NAM worker finishes in the timer.
-    if(!assetLoad.valid()&&!preset.ir.path.empty()&&std::filesystem::exists(preset.ir.path))loadIr(preset.ir.path);
-    shell.live().setNamName(preset.nam.path.empty()?"IMPORT AN AMP":preset.nam.path.stem().string());
-    shell.live().setIrName(preset.ir.path.empty()?"IMPORT A CABINET":preset.ir.path.stem().string());
+    if(!missing.empty()){juce::String warning;for(const auto& item:missing)warning+=juce::String(item)+"\n";showInfo("Preset needs a file",warning+"Your current sound is unchanged. Import the missing file and try again.",juce::MessageBoxIconType::WarningIcon);return;}
+    const auto sr=currentSelection?currentSelection->sampleRate:44100.0;
+    const auto block=currentSelection?currentSelection->bufferSize:128;
+    assetLoad=std::async(std::launch::async,[preset,sr,block]{
+        PreparedAsset result;result.preset=preset;result.rate=sr;result.block=block;
+        result.nam=std::make_unique<nam::NamProcessor>();
+        result.ir=std::make_unique<ir::IrProcessor>();
+        if(!preset.nam.path.empty()){const auto loaded=result.nam->load(preset.nam.path,sr,block);if(!loaded.ok){result.error="Amp: "+loaded.error;return result;}}
+        if(!preset.ir.path.empty()){auto loaded=ir::IrProcessor::loadWav(preset.ir.path,sr,8192);if(!loaded.ok){result.error="Cabinet: "+loaded.error;return result;}result.ir->setPrepared(std::move(loaded.data),block);}
+        return result;
+    });
 }
 void PmxRuntime::loopCommand(audio::LoopCommand command)
 {
@@ -334,7 +346,7 @@ looper::LoopSnapshot PmxRuntime::snapshotLoop()
     const auto state=engine.loopStatus();
     if(state.pendingCommands||state.state!=looper::LooperState::stopped)return {};
     audioHost.suspend();
-    auto snapshot=engine.looper().snapshot();
+    auto snapshot=engine.looper().state()==looper::LooperState::stopped?engine.looper().snapshot():looper::LoopSnapshot{};
     if(connected&&!audioHost.resume()){connected=false;monitoring=false;engine.setMuted(true);}
     return snapshot;
 }
@@ -382,7 +394,8 @@ void PmxRuntime::handleShortcut(input::ShortcutCommand command)
         case input::ShortcutCommand::loopTransport:
             switch(engine.loopStatus().state)
             {
-                case looper::LooperState::empty: case looper::LooperState::stopped: loopCommand(audio::LoopCommand::record); break;
+                case looper::LooperState::empty: loopCommand(audio::LoopCommand::record); break;
+                case looper::LooperState::stopped: loopCommand(audio::LoopCommand::play); break;
                 case looper::LooperState::recording: loopCommand(audio::LoopCommand::play); break;
                 case looper::LooperState::playing: loopCommand(audio::LoopCommand::overdub); break;
                 case looper::LooperState::overdubbing: loopCommand(audio::LoopCommand::play); break;
@@ -405,6 +418,8 @@ void PmxRuntime::updateLooperUi()
     shell.looper().setTransportState(looperStateText(status.state));
     shell.looper().setTiming(status.state==looper::LooperState::recording?status.recordedFrames:status.position,status.loopFrames,engine.sampleRate());
     shell.looper().setAvailability(connected&&monitoring,status.loopFrames>0,status.state==looper::LooperState::stopped&&!status.pendingCommands,status.canUndo,status.canRedo);
+    shell.looper().setWaveform(engine.loopWaveform(),status.loopFrames>0?static_cast<float>(status.position)/status.loopFrames:0);
+    if(engine.consumeLoopError())showInfo("Looper action unavailable","Finish or clear the current take before starting another. If overdub history is full, save the loop and start a new one.");
 }
 
 void PmxRuntime::installUpdate(const std::filesystem::path& path)
@@ -420,6 +435,10 @@ void PmxRuntime::installUpdate(const std::filesystem::path& path)
 
 void PmxRuntime::timerCallback()
 {
+    if(engine.recorder().needsFinalisation()){
+        const auto result=engine.recorder().stop();
+        showInfo("Recording stopped",juce::String(result.error)+"\nPartial take: "+juce::String(result.path.string()),juce::MessageBoxIconType::WarningIcon);
+    }
     if(connected && !audioHost.isRunning())
     {
         connected=false; monitoring=false; engine.setMuted(true);audioHost.close();if(engine.recorder().isRecording())engine.recorder().interruptForRecovery();deviceController.notifyDisconnected();shell.live().setMutedVisual(true);
@@ -438,16 +457,21 @@ void PmxRuntime::timerCallback()
             else if(currentSelection&&(loaded.rate!=currentSelection->sampleRate||loaded.block!=currentSelection->bufferSize))showInfo("Audio setup changed","Import the sound again using the new audio settings.");
             else {
                 audioHost.suspend();
-                const bool wasNam=static_cast<bool>(loaded.nam);
-                if(loaded.nam){engine.nam()=std::move(*loaded.nam);currentNamPath=loaded.path;sound.nam={loaded.path.stem().string(),loaded.path};sound.effects[3].enabled=true;applyEffect(3,sound.effects[3]);shell.live().setNamName(loaded.path.stem().string());}
-                if(loaded.ir){engine.ir().swapPrepared(*loaded.ir);currentIrPath=loaded.path;sound.ir={loaded.path.stem().string(),loaded.path};sound.effects[4].enabled=true;applyEffect(4,sound.effects[4]);shell.live().setIrName(loaded.path.stem().string());}
-                shell.live().setSoundState(sound);
+                if(loaded.preset){
+                    engine.nam()=std::move(*loaded.nam);engine.ir().swapPrepared(*loaded.ir);
+                    commitPreset(*loaded.preset);
+                }else{
+                    if(loaded.nam){engine.nam()=std::move(*loaded.nam);currentNamPath=loaded.path;sound.nam={loaded.path.stem().string(),loaded.path};sound.effects[3].enabled=true;applyEffect(3,sound.effects[3]);shell.live().setNamName(loaded.path.stem().string());}
+                    if(loaded.ir){engine.ir().swapPrepared(*loaded.ir);currentIrPath=loaded.path;sound.ir={loaded.path.stem().string(),loaded.path};sound.effects[4].enabled=true;applyEffect(4,sound.effects[4]);shell.live().setIrName(loaded.path.stem().string());}
+                    shell.live().setSoundState(sound);
+                }
                 if(connected&&!audioHost.resume()){connected=false;monitoring=false;engine.setMuted(true);}
-                if(wasNam&&!sound.ir.path.empty()&&std::filesystem::exists(sound.ir.path))loadIr(sound.ir.path);
             }
         }catch(const std::exception& e){showInfo("Sound import failed",juce::String(e.what()),juce::MessageBoxIconType::WarningIcon);}
     }
     const auto levels=engine.metrics();shell.live().setMeters(connected?levels.inputPeak:0,connected?levels.outputPeak:0);
+    shell.performance().setState(currentPresetName,connected?"POCKET MASTER CONNECTED":"POCKET MASTER OFFLINE",connected,!monitoring,bypassed,connected?levels.inputPeak:0,connected?levels.outputPeak:0,engine.tempo().bpm());
+    shell.performance().setDelay(sound.effects[7].values[0],sound.effects[7].values[1],sound.effects[7].values[2]);
     shell.live().setTempo(engine.tempo().bpm());shell.live().setRecordingVisual(engine.recorder().isRecording());
     if(!connected)shell.live().setTunerResult({});
     updateLooperUi();

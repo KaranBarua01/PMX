@@ -98,6 +98,7 @@ if(PMX_BUILD_GUI)
         target_compile_definitions(PMX PRIVATE PMX_HAS_NAM_CORE=1)
     endif()
     target_compile_definitions(PMX PRIVATE
+        PMX_HAS_JUCE_DSP=1
         JUCE_ASIO=1
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
@@ -110,10 +111,14 @@ if(PMX_BUILD_GUI)
                 target_sources(pmx_native_ui_tests PRIVATE "${source}")
             endif()
         endforeach()
-        target_sources(pmx_native_ui_tests PRIVATE tests/ui/NativeUiTests.cpp src/input/ShortcutManager.cpp src/update/ReleaseChecker.cpp src/update/JuceReleaseClient.cpp)
+        target_sources(pmx_native_ui_tests PRIVATE tests/ui/NativeUiTests.cpp src/nam/NamProcessor.cpp src/ir/IrProcessor.cpp src/input/ShortcutManager.cpp src/update/ReleaseChecker.cpp src/update/JuceReleaseClient.cpp)
         target_include_directories(pmx_native_ui_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-        target_link_libraries(pmx_native_ui_tests PRIVATE pmx_build_config juce::juce_gui_extra juce::juce_audio_utils)
-        target_compile_definitions(pmx_native_ui_tests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+        target_link_libraries(pmx_native_ui_tests PRIVATE pmx_build_config juce::juce_gui_extra juce::juce_audio_utils juce::juce_dsp)
+        target_compile_definitions(pmx_native_ui_tests PRIVATE PMX_HAS_JUCE_DSP=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+        if(TARGET pmx_nam_core)
+            target_link_libraries(pmx_native_ui_tests PRIVATE pmx_nam_core)
+            target_compile_definitions(pmx_native_ui_tests PRIVATE PMX_HAS_NAM_CORE=1)
+        endif()
     endif()
 endif()
 

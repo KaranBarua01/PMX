@@ -1,7 +1,17 @@
 #include <cmath>
 #include <limits>
 #include <filesystem>
+#include <cstdlib>
+#include <new>
 #include "audio/ProcessingEngine.h"
+
+namespace {thread_local bool guardAllocations=false;thread_local unsigned callbackAllocations=0;}
+void* operator new(std::size_t count){if(guardAllocations)++callbackAllocations;if(auto* p=std::malloc(count?count:1))return p;throw std::bad_alloc{};}
+void* operator new[](std::size_t count){return ::operator new(count);}
+void operator delete(void* p) noexcept{std::free(p);}
+void operator delete[](void* p) noexcept{std::free(p);}
+void operator delete(void* p,std::size_t) noexcept{std::free(p);}
+void operator delete[](void* p,std::size_t) noexcept{std::free(p);}
 
 int main()
 {
@@ -124,12 +134,31 @@ int main()
     if(engine.loopStatus().state != pmx::looper::LooperState::empty) return 21;
     engine.process(takeInputs,1,outputs,2,4);
     if(engine.loopStatus().recordedFrames != 4) return 22;
+    const auto waveform=engine.loopWaveform();
+    if(*std::max_element(waveform.begin(),waveform.end())<=0)return 29;
     engine.requestLoopCommand(pmx::audio::LoopCommand::stop);
     engine.process(silenceInputs,1,outputs,2,4);
     if(engine.loopStatus().state != pmx::looper::LooperState::stopped) return 23;
+    engine.prepare(44100,128,1,2);
+    if(engine.loopStatus().loopFrames!=4)return 27;
+    engine.prepare(48000,128,1,2);
+    if(engine.loopStatus().loopFrames<4)return 28;
     for(int i=0;i<31;++i) if(!engine.requestLoopCommand(pmx::audio::LoopCommand::clear)) return 24;
     if(engine.requestLoopCommand(pmx::audio::LoopCommand::clear)) return 25;
     engine.process(silenceInputs,1,outputs,2,4);
     if(engine.loopStatus().state != pmx::looper::LooperState::empty) return 26;
+    engine.setMuted(false);engine.setFxBypass(false);
+    for(unsigned i=0;i<9;++i)engine.rack().setEnabled(static_cast<pmx::dsp::RackModule>(i),true);
+    engine.requestLoopCommand(pmx::audio::LoopCommand::record);
+    guardAllocations=true;
+    for(int i=0;i<100;++i)engine.process(takeInputs,1,outputs,2,4);
+    engine.requestLoopCommand(pmx::audio::LoopCommand::play);
+    engine.process(takeInputs,1,outputs,2,4);
+    engine.requestLoopCommand(pmx::audio::LoopCommand::overdub);
+    engine.process(takeInputs,1,outputs,2,4);
+    engine.requestLoopCommand(pmx::audio::LoopCommand::clear);
+    engine.process(takeInputs,1,outputs,2,4);
+    guardAllocations=false;
+    if(callbackAllocations!=0)return 30;
     return 0;
 }

@@ -37,62 +37,44 @@ std::vector<AudioDeviceInfo> JuceAudioHost::scan()
 
 juce::String JuceAudioHost::open(const AudioDeviceSelection& selection)
 {
-    close();
-    juce::String asioType;
-    for (auto* type : manager.getAvailableDeviceTypes())
-        if (type->getTypeName().containsIgnoreCase("ASIO")) { asioType = type->getTypeName(); break; }
-    if (asioType.isEmpty()) return "ASIO is not available.";
-
-    manager.setCurrentAudioDeviceType(asioType, true);
-
-    auto setup = manager.getAudioDeviceSetup();
-    setup.inputDeviceName = selection.deviceName;
-    setup.outputDeviceName = selection.deviceName;
-    setup.sampleRate = selection.sampleRate;
-    setup.bufferSize = selection.bufferSize;
-    setup.useDefaultInputChannels = false;
-    setup.useDefaultOutputChannels = false;
-    setup.inputChannels.clear();
-    setup.outputChannels.clear();
-    setup.inputChannels.setBit(selection.inputChannel);
-    setup.outputChannels.setBit(selection.outputLeft);
-    setup.outputChannels.setBit(selection.outputRight);
-
-    const auto error = manager.setAudioDeviceSetup(setup, true);
-    if (error.isNotEmpty()) return error;
-    manager.addAudioCallback(this);
-    callbackAttached = true;
+    close();requestedName=selection.deviceName;requestedRate=selection.sampleRate;requestedBlock=selection.bufferSize;
+    juce::AudioIODeviceType* chosen=nullptr;
+    for(auto* type:manager.getAvailableDeviceTypes()){
+        if(!type->getTypeName().containsIgnoreCase("ASIO"))continue;
+        type->scanForDevices();
+        if(type->getDeviceNames().contains(juce::String(selection.deviceName))){chosen=type;break;}
+    }
+    if(!chosen)return "Pocket Master ASIO could not be found. Connect it by USB and check that its ASIO driver is installed.";
+    device.reset(chosen->createDevice(juce::String(selection.deviceName),juce::String(selection.deviceName)));
+    if(!device)return "Pocket Master could not be created. Close other audio applications and try again.";
+    juce::BigInteger inputs,outputs;inputs.setBit(selection.inputChannel);outputs.setBit(selection.outputLeft);outputs.setBit(selection.outputRight);
+    const auto error=device->open(inputs,outputs,selection.sampleRate,selection.bufferSize);
+    if(error.isNotEmpty()){device.reset();return "Pocket Master could not be opened. Another application may be using its ASIO driver. Close other audio apps and try again. Details: "+error;}
+    startAuthorised.store(true);device->start(this);callbackAttached=true;
+    if(!deviceAlive.load()){close();return "The ASIO driver opened a different device or changed the requested audio settings. Output remains muted.";}
     return {};
 }
-
 void JuceAudioHost::close()
 {
-    maintenance.store(false);
-    if (callbackAttached)
-    {
-        manager.removeAudioCallback(this);
-        callbackAttached = false;
-    }
-    manager.closeAudioDevice();
-    deviceAlive.store(false);
+    maintenance.store(false);startAuthorised.store(false);
+    if(device){device->stop();device->close();device.reset();}
+    callbackAttached=false;deviceAlive.store(false);
 }
-
 void JuceAudioHost::suspend()
 {
     maintenance.store(true);
-    if(callbackAttached){manager.removeAudioCallback(this);callbackAttached=false;}
+    if(device&&callbackAttached){device->stop();callbackAttached=false;}
 }
-
 bool JuceAudioHost::resume()
 {
-    auto* device=manager.getCurrentAudioDevice();
-    if(!device || !device->isOpen() || device->getCurrentSampleRate()!=preparedRate || device->getCurrentBufferSizeSamples()!=preparedBlock)
-    { maintenance.store(false);deviceAlive.store(false);return false; }
-    manager.addAudioCallback(this);callbackAttached=true;maintenance.store(false);return true;
+    if(!device||!device->isOpen()||device->getCurrentSampleRate()!=preparedRate||device->getCurrentBufferSizeSamples()!=preparedBlock){maintenance.store(false);deviceAlive.store(false);return false;}
+    startAuthorised.store(true);device->start(this);callbackAttached=true;maintenance.store(false);return deviceAlive.load();
 }
 
 void JuceAudioHost::audioDeviceAboutToStart(juce::AudioIODevice* device)
 {
+    if(!startAuthorised.exchange(false) || !device || !device->getTypeName().containsIgnoreCase("ASIO") || device->getName().toStdString()!=requestedName || device->getCurrentSampleRate()!=requestedRate || device->getCurrentBufferSizeSamples()!=requestedBlock)
+    {deviceAlive.store(false);return;}
     deviceAlive.store(true);
     if(maintenance.load())return;
     preparedRate=device->getCurrentSampleRate();preparedBlock=device->getCurrentBufferSizeSamples();

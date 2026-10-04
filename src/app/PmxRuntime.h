@@ -42,6 +42,7 @@ private:
     void chooseIr();
     void loadNam(const std::filesystem::path&);
     void loadIr(const std::filesystem::path&);
+    void commitPreset(const presets::Preset&);
     void saveCurrentPreset();
     void choosePreset(const std::string& name);
     void applyPreset(const presets::Preset&);
@@ -62,7 +63,7 @@ private:
     std::optional<audio::AudioDeviceSelection> currentSelection;
     std::unique_ptr<juce::FileChooser> chooser;
     std::future<looper::LoopExportResult> loopWrite;
-    struct PreparedAsset {std::unique_ptr<nam::NamProcessor> nam;std::unique_ptr<ir::IrProcessor> ir;std::filesystem::path path;std::string error;double rate{};int block{};};
+    struct PreparedAsset {std::unique_ptr<nam::NamProcessor> nam;std::unique_ptr<ir::IrProcessor> ir;std::filesystem::path path;std::optional<presets::Preset> preset;std::string error;double rate{};int block{};};
     std::future<PreparedAsset> assetLoad;
     presets::SoundState sound;
     std::vector<presets::Preset> presetLibrary;
@@ -70,6 +71,7 @@ private:
     std::filesystem::path currentNamPath;
     std::filesystem::path currentIrPath;
     std::string currentPresetName { "Dream Clean" };
+    std::string currentPresetId{"factory-4"},currentCategory{"Clean"};
     bool connected { false };
     bool monitoring { false };
     bool bypassed { false };

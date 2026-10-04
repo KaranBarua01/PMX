@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <cmath>
 #include "ir/IrProcessor.h"
 
 static void put16(std::ofstream& f, std::uint16_t v){ f.put(static_cast<char>(v&0xff)); f.put(static_cast<char>((v>>8)&0xff)); }
@@ -29,5 +30,12 @@ int main()
     auto stereo=dir/"stereo.wav"; writeWav(stereo,2);
     if(pmx::ir::IrProcessor::loadWav(stereo,48000.0,8192).ok) return 5;
     if(pmx::ir::IrProcessor::loadWav(dir/"missing.wav",48000.0,8192).ok) return 6;
+    if(pmx::ir::IrProcessor::loadWav(mono,0,8192).ok) return 7;
+    auto truncated=dir/"truncated.wav";fs::copy_file(mono,truncated,fs::copy_options::overwrite_existing);fs::resize_file(truncated,46);
+    if(pmx::ir::IrProcessor::loadWav(truncated,48000,8192).ok) return 8;
+    auto pcm24=dir/"24bit.wav";
+    {std::ofstream f(pcm24,std::ios::binary);f.write("RIFF",4);put32(f,42);f.write("WAVEfmt ",8);put32(f,16);put16(f,1);put16(f,1);put32(f,48000);put32(f,144000);put16(f,3);put16(f,24);f.write("data",4);put32(f,6);f.put(0);f.put(0);f.put(0x40);f.put(0);f.put(0);f.put(0xC0);}
+    auto loaded24=pmx::ir::IrProcessor::loadWav(pcm24,48000,8192);
+    if(!loaded24.ok||loaded24.data->taps.size()!=2||std::abs(loaded24.data->taps[1]+.5f)>.001f) return 9;
     fs::remove_all(dir); return 0;
 }

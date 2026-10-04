@@ -28,10 +28,13 @@ return false;
 }
 NamLoadResult NamProcessor::load(const std::filesystem::path& p,double sr,int maxBlock)
 {
+    if(!std::isfinite(sr)||sr<8000||sr>192000||maxBlock<1||maxBlock>8192)return {false,"Audio preparation settings are invalid."};
+    std::error_code sizeError;const auto bytes=std::filesystem::file_size(p,sizeError);
+    if(!sizeError&&bytes>64*1024*1024)return {false,"NAM model is too large. Choose a model smaller than 64 MB."};
     if(!std::filesystem::exists(p)||!std::filesystem::is_regular_file(p))return {false,"NAM file does not exist."};
     auto ext=p.extension().string();std::transform(ext.begin(),ext.end(),ext.begin(),[](unsigned char c){return static_cast<char>(std::tolower(c));});if(ext!=".nam")return {false,"Choose a .nam model file."};
 #if defined(PMX_HAS_NAM_CORE)
-    try{auto next=::nam::get_dsp(p,{.prewarm=false});if(!next)return {false,"NAM model could not be loaded."};if(next->NumInputChannels()!=1||next->NumOutputChannels()!=1)return {false,"This alpha supports mono-in/mono-out NAM models only."};next->SetPrewarmOnReset(false);next->Reset(sr,maxBlock);next->prewarm();impl->scratch.assign(static_cast<size_t>(maxBlock),0.0f);NamLoadResult result{true,{},next->GetExpectedSampleRate(),next->NumInputChannels(),next->NumOutputChannels()};impl->model=std::move(next);impl->isLoaded=true;return result;}catch(const std::exception&e){return {false,e.what()};}
+    try{auto next=::nam::get_dsp(p,{.prewarm=false});if(!next)return {false,"NAM model could not be loaded."};if(next->NumInputChannels()!=1||next->NumOutputChannels()!=1)return {false,"This alpha supports mono-in/mono-out NAM models only."};if(!next->SupportsArbitrarySampleRate()&&next->GetExpectedSampleRate()>0&&std::abs(next->GetExpectedSampleRate()-sr)>.5)return {false, "This amp model needs "+std::to_string(static_cast<int>(next->GetExpectedSampleRate()))+" Hz. Choose that sample rate in Settings before importing it."};next->SetPrewarmOnReset(false);next->Reset(sr,maxBlock);next->prewarm();impl->scratch.assign(static_cast<size_t>(maxBlock),0.0f);NamLoadResult result{true,{},next->GetExpectedSampleRate(),next->NumInputChannels(),next->NumOutputChannels()};impl->model=std::move(next);impl->isLoaded=true;return result;}catch(const std::exception&e){return {false,e.what()};}
 #else
     (void)sr;(void)maxBlock; return {false,"NAM engine is not compiled in this build."};
 #endif

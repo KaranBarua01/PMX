@@ -33,6 +33,7 @@ public:
     PresetsScreen& presets() noexcept { return presetsScreen; }
     SettingsScreen& settings() noexcept { return settingsScreen; }
     FirstRunWizard& setup() noexcept { return setupWizard; }
+    PerformanceMode& performance() noexcept {return performanceMode;}
     UpdateDialog& updater() noexcept { return updateDialog; }
     void setTopStatus(const std::string& text, bool healthy);
     void showSetup(bool show);

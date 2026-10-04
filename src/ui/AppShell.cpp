@@ -54,6 +54,9 @@ AppShell::AppShell()
     liveScreen.onChooseSound = [this] { select(Page::presets); };
     liveScreen.onPerformanceMode = [this] { showPerformance(true); };
     performanceMode.onExit = [this] { showPerformance(false); };
+    performanceMode.onShortcut=[this](input::ShortcutCommand command){if(command==input::ShortcutCommand::tuner){showPerformance(false);liveScreen.toggleTuner();}else if(onShortcut)onShortcut(command);};
+    performanceMode.onEditEffect=[this](std::size_t index){showPerformance(false);liveScreen.editEffect(index);};
+    performanceMode.onDelayChanged=[this](float t,float f,float m){if(liveScreen.onEffectChanged)liveScreen.onEffectChanged(7,{true,{t,f,m}});};
     liveScreen.onOpenLooper=[this]{select(Page::looper);};
     showSetup(true);
 }

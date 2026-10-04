@@ -19,6 +19,7 @@ class LooperEngine final
 {
 public:
     void prepare(double sampleRate, double maxSeconds = 120.0);
+    void preparePreserving(double sampleRate,double maxSeconds=120.0);
     bool record() noexcept;
     bool play() noexcept;
     bool overdub();

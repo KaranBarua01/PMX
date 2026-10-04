@@ -46,6 +46,7 @@ RecorderResult QuickRecorder::start(const std::filesystem::path& outputPath)
     output.open(path, std::ios::binary | std::ios::trunc);
     if (!output) return {false, "Recording file could not be created.", {}};
     framesWritten = 0;
+    writerFailed.store(false);
     writeFrame.store(0, std::memory_order_relaxed);
     readFrame.store(0, std::memory_order_relaxed);
     accepted.store(0, std::memory_order_relaxed);
@@ -54,7 +55,8 @@ RecorderResult QuickRecorder::start(const std::filesystem::path& outputPath)
     output.flush();
     if (!output) { output.close(); return {false, "Recording header could not be written.", {}}; }
     recording.store(true, std::memory_order_release);
-    worker = std::thread([this]{ workerLoop(); });
+    try{worker = std::thread([this]{ workerLoop(); });}
+    catch(const std::exception&){recording.store(false);output.close();return {false,"Recording writer could not start.",path};}
     return {true, {}, path};
 }
 
@@ -85,7 +87,7 @@ bool QuickRecorder::push(const float* left, const float* right, int frames) noex
 
 void QuickRecorder::writeSample24(std::ostream& out, float sample)
 {
-    sample = std::clamp(sample, -1.0f, 1.0f);
+    sample = std::isfinite(sample)?std::clamp(sample, -1.0f, 1.0f):0.0f;
     const auto value = static_cast<std::int32_t>(std::lrint(sample * 8388607.0f));
     const auto bits = static_cast<std::uint32_t>(value);
     out.put(static_cast<char>(bits & 0xff));
@@ -109,11 +111,13 @@ void QuickRecorder::patchHeader()
 {
     const auto bytesPerFrame = static_cast<std::uint32_t>(channelCount * 3);
     const auto dataBytes = static_cast<std::uint32_t>(std::min<std::uint64_t>(framesWritten * bytesPerFrame, 0xffffffffu - 44u));
-    output.flush(); output.clear();
+    output.flush();
+    if(!output){writerFailed.store(true);return;}
     output.seekp(4, std::ios::beg); u32(output, 36u + dataBytes);
     output.seekp(40, std::ios::beg); u32(output, dataBytes);
     output.seekp(0, std::ios::end);
     output.flush();
+    if(!output)writerFailed.store(true);
 }
 
 void QuickRecorder::workerLoop()
@@ -131,10 +135,12 @@ void QuickRecorder::workerLoop()
         const auto batchEnd = std::min(write, read + 512u);
         while (read < batchEnd)
         {
+            if(framesWritten>=((0xffffffffull-44)/(channelCount*3))){writerFailed.store(true);recording.store(false);readFrame.store(write,std::memory_order_release);return;}
             const auto index = static_cast<std::size_t>(read % capacityFrames) * 2u;
             writeSample24(output, ring[index]);
             if (channelCount > 1) writeSample24(output, ring[index+1]);
             ++read; ++framesWritten;
+            if(!output){writerFailed.store(true);recording.store(false);readFrame.store(write,std::memory_order_release);return;}
         }
         readFrame.store(read, std::memory_order_release);
         if (framesWritten - lastPatched >= 1024)
@@ -148,12 +154,14 @@ void QuickRecorder::workerLoop()
 
 RecorderResult QuickRecorder::stop()
 {
-    if (!isRecording()) return {false, "No recording is running.", path};
+    if (!isRecording()&&!worker.joinable()) return {false, "No recording is running.", path};
     recording.store(false, std::memory_order_seq_cst);
     while(activeProducers.load(std::memory_order_seq_cst)!=0) std::this_thread::yield();
     if (worker.joinable()) worker.join();
     patchHeader();
     output.close();
+    if(writerFailed.load()||!output)return {false,"Recording could not be fully written. Check free disk space. The partial file was kept.",path};
+    if(dropped.load()!=0)return {false,"Recording has gaps because the disk writer could not keep up. The partial take was kept.",path};
     if (!std::filesystem::exists(path) || std::filesystem::file_size(path) <= 44)
         return {false, "Recording ended before audio was written.", path};
     return {true, {}, path};
@@ -161,12 +169,13 @@ RecorderResult QuickRecorder::stop()
 
 RecorderResult QuickRecorder::interruptForRecovery()
 {
-    if (!isRecording()) return {false, "No recording is running.", path};
+    if (!isRecording()&&!worker.joinable()) return {false, "No recording is running.", path};
     recording.store(false, std::memory_order_seq_cst);
     while(activeProducers.load(std::memory_order_seq_cst)!=0) std::this_thread::yield();
     if (worker.joinable()) worker.join();
     patchHeader();
     output.close();
+    if(writerFailed.load()||dropped.load()!=0)return {false,"The recovered take is incomplete. Its partial file was kept.",path};
     return {std::filesystem::exists(path) && std::filesystem::file_size(path) > 44,
             std::filesystem::exists(path) ? std::string{} : std::string{"Recovery file was not created."}, path};
 }

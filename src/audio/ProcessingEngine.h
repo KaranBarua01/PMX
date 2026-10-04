@@ -58,6 +58,8 @@ public:
     bool requestLoopCommand(LoopCommand) noexcept;
     [[nodiscard]] LoopStatus loopStatus() const noexcept;
     void setLoopLevel(float level) noexcept { loopLevel.store(dsp::safeParameter(level,0,1,1)); }
+    [[nodiscard]] std::array<float,128> loopWaveform() const noexcept;
+    bool consumeLoopError() noexcept {return loopError.exchange(false);}
 
 private:
     void applyLoopCommands() noexcept;
@@ -68,6 +70,8 @@ private:
     std::atomic<std::size_t> publishedRecorded{0}, publishedLength{0}, publishedPosition{0};
     std::atomic<bool> publishedUndo{false}, publishedRedo{false};
     std::atomic<float> loopLevel{1};
+    std::array<std::atomic<float>,1200> waveformPeaks{};
+    std::atomic<bool> loopError{false};
     std::atomic<bool> fxBypass { false };
     std::atomic<bool> muted { true };
     std::atomic<float> inputGain { 1.0f };

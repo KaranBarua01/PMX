@@ -25,7 +25,7 @@ void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, i
     irProcessor.reset();
     metronome.prepare(newSampleRate);
     tunerCapture.prepare(32768);
-    looperEngine.prepare(newSampleRate, 120.0);
+    looperEngine.preparePreserving(newSampleRate, 120.0);
     quickRecorder.prepare(newSampleRate, 2, 2.0);
     loopScratchLeft.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     loopScratchRight.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
@@ -99,9 +99,24 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
 
         if (numSamples <= static_cast<int>(loopScratchLeft.size()))
         {
+            const auto before=looperEngine.state();
+            const auto frame=before==looper::LooperState::recording?looperEngine.recordedFrames():looperEngine.playbackPosition();
             const float* liveL = outputs[0];
             const float* liveR = numOutputs > 1 && outputs[1] != nullptr ? outputs[1] : outputs[0];
             looperEngine.process(liveL, liveR, loopScratchLeft.data(), loopScratchRight.data(), numSamples);
+            if(before==looper::LooperState::recording||before==looper::LooperState::playing||before==looper::LooperState::overdubbing)
+            {
+                const auto length=looperEngine.loopFrames();
+                const auto stride=static_cast<std::size_t>(std::max(1.0,preparedSampleRate.load()/10));
+                for(int i=0;i<numSamples;++i)
+                {
+                    auto pos=frame+static_cast<std::size_t>(i);if(before!=looper::LooperState::recording&&length>0)pos%=length;
+                    const auto bin=std::min(pos/stride,waveformPeaks.size()-1);
+                    const float value=before==looper::LooperState::recording?(liveL?std::abs(liveL[i]):0):std::max(std::abs(loopScratchLeft[static_cast<std::size_t>(i)]),std::abs(loopScratchRight[static_cast<std::size_t>(i)]));
+                    if(pos%stride==0)waveformPeaks[bin].store(value,std::memory_order_relaxed);
+                    else waveformPeaks[bin].store(std::max(waveformPeaks[bin].load(std::memory_order_relaxed),value),std::memory_order_relaxed);
+                }
+            }
             if (outputs[0] != nullptr)
                 for (int i = 0; i < numSamples; ++i) outputs[0][i] += loopScratchLeft[static_cast<std::size_t>(i)]*loopLevel.load();
             if (numOutputs > 1 && outputs[1] != nullptr)
@@ -161,13 +176,13 @@ void ProcessingEngine::applyLoopCommands() noexcept
     {
         switch(loopCommands[read])
         {
-            case LoopCommand::record: looperEngine.record(); break;
-            case LoopCommand::play: looperEngine.play(); break;
-            case LoopCommand::overdub: looperEngine.overdub(); break;
+            case LoopCommand::record: if(!looperEngine.record())loopError.store(true);else for(auto& peak:waveformPeaks)peak.store(0,std::memory_order_relaxed);break;
+            case LoopCommand::play: if(!looperEngine.play())loopError.store(true);break;
+            case LoopCommand::overdub: if(!looperEngine.overdub())loopError.store(true);break;
             case LoopCommand::stop: looperEngine.stop(); break;
             case LoopCommand::undo: looperEngine.undo(); break;
             case LoopCommand::redo: looperEngine.redo(); break;
-            case LoopCommand::clear: looperEngine.clear(); break;
+            case LoopCommand::clear: looperEngine.clear();for(auto& peak:waveformPeaks)peak.store(0,std::memory_order_relaxed);break;
         }
         read=static_cast<unsigned>((read+1)%loopCommands.size());
     }
@@ -187,5 +202,14 @@ LoopStatus ProcessingEngine::loopStatus() const noexcept
 {
     return {publishedLoopState.load(std::memory_order_acquire), publishedRecorded.load(), publishedLength.load(), publishedPosition.load(),
             publishedUndo.load(),publishedRedo.load(),commandRead.load()!=commandWrite.load()};
+}
+
+std::array<float,128> ProcessingEngine::loopWaveform() const noexcept
+{
+    std::array<float,128> result{};const auto frames=publishedRecorded.load();const double sr=preparedSampleRate.load();
+    if(frames==0||sr<=0)return result;
+    const auto count=std::min(waveformPeaks.size(),static_cast<std::size_t>(std::ceil(frames/(sr/10))));
+    for(std::size_t i=0;i<result.size();++i){auto a=i*count/result.size(),b=std::max(a+1,(i+1)*count/result.size());for(auto j=a;j<b&&j<waveformPeaks.size();++j)result[i]=std::max(result[i],waveformPeaks[j].load(std::memory_order_relaxed));}
+    return result;
 }
 } // namespace pmx::audio

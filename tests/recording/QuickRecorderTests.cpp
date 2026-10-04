@@ -61,6 +61,13 @@ int main()
     recorder.stop();
     producer.join();
     if(fs::file_size(racing)!=44+recorder.framesAccepted()*6) return 11;
+    recorder.prepare(1000,2,.25);
+    if(!recorder.start(dir/"overflow.wav").ok)return 12;
+    recorder.push(left.data(),right.data(),100);
+    std::array<float,257> tooLarge{};
+    if(recorder.push(tooLarge.data(),tooLarge.data(),257))return 13;
+    const auto overflow=recorder.stop();
+    if(overflow.ok||overflow.error.empty()||overflow.path.empty())return 14;
     fs::remove_all(dir);
     return 0;
 }

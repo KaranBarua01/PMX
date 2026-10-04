@@ -4,6 +4,25 @@
 
 namespace pmx::looper
 {
+void LooperEngine::preparePreserving(double sampleRate,double maxSeconds)
+{
+    if(capacity==0){prepare(sampleRate,maxSeconds);return;}
+    stop();
+    if(sampleRate==rate)return;
+    const auto saved=snapshot();
+    const auto oldRate=rate;
+    prepare(sampleRate,maxSeconds);
+    if(saved.left.empty()||oldRate<=0)return;
+    const double ratio=sampleRate/oldRate;
+    loopLength=std::min(capacity,static_cast<std::size_t>(std::ceil(saved.left.size()*ratio)));
+    for(std::size_t i=0;i<loopLength;++i)
+    {
+        const auto pos=static_cast<double>(i)/ratio;const auto a=std::min(static_cast<std::size_t>(pos),saved.left.size()-1);const auto b=std::min(a+1,saved.left.size()-1);const auto frac=static_cast<float>(pos-a);
+        left[i]=saved.left[a]+(saved.left[b]-saved.left[a])*frac;
+        right[i]=saved.right[a]+(saved.right[b]-saved.right[a])*frac;
+    }
+    currentState=LooperState::stopped;
+}
 void LooperEngine::prepare(double sampleRate, double maxSeconds)
 {
     rate = sampleRate > 0.0 ? sampleRate : 44100.0;

@@ -5,6 +5,7 @@
 #include "ui/components/PmxButton.h"
 #include "ui/components/PmxMeter.h"
 #include "ui/components/PmxKnob.h"
+#include "input/ShortcutManager.h"
 
 namespace pmx::ui
 {
@@ -15,6 +16,11 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     std::function<void()> onExit;
+    std::function<void(input::ShortcutCommand)> onShortcut;
+    std::function<void(std::size_t)> onEditEffect;
+    std::function<void(float,float,float)> onDelayChanged;
+    void setState(const std::string&,const std::string&,bool,bool,bool,float,float,double);
+    void setDelay(float,float,float);
 
 private:
     juce::Label title, subtitle, preset, connection, shortcutHint;

@@ -22,7 +22,9 @@ if(PMX_ENABLE_NAM_CORE)
     FetchContent_MakeAvailable(NAMCore)
     file(GLOB NAM_CORE_SOURCES CONFIGURE_DEPENDS "${namcore_SOURCE_DIR}/NAM/*.cpp")
     file(GLOB NAM_CORE_WAVENET_SOURCES CONFIGURE_DEPENDS "${namcore_SOURCE_DIR}/NAM/*/*.cpp")
-    add_library(pmx_nam_core STATIC ${NAM_CORE_SOURCES} ${NAM_CORE_WAVENET_SOURCES})
+    # Every architecture registers itself in a static initializer. A normal archive
+    # discards unreferenced model units and leaves get_dsp with an empty registry.
+    add_library(pmx_nam_core OBJECT ${NAM_CORE_SOURCES} ${NAM_CORE_WAVENET_SOURCES})
     target_compile_features(pmx_nam_core PUBLIC cxx_std_20)
     target_include_directories(pmx_nam_core PUBLIC
         "${namcore_SOURCE_DIR}"

@@ -20,9 +20,9 @@ void PresetsScreen::rebuild(){
  const auto query=search.getText().trim();
  for(const auto& p:library){
   if(category=="Favorites"&&!p.favorite)continue;
-  if(category!="All sounds"&&category!="Favorites"&&!category.equalsIgnoreCase(p.category))continue;
+  if(category!="All sounds"&&category!="Favorites"&&!category.equalsIgnoreCase(juce::String(p.category)))continue;
   if(query.isNotEmpty()&&!juce::String(p.displayName).containsIgnoreCase(query)&&!juce::String(p.category).containsIgnoreCase(query))continue;
-  auto card=std::make_unique<PmxButton>(juce::String(p.displayName));card->getProperties().set("category",p.category);card->getProperties().set("subtitle",p.id==currentId?"● CURRENT SOUND":"Guitar · Starting sound");card->setToggleState(p.id==currentId,juce::dontSendNotification);
+  auto card=std::make_unique<PmxButton>(juce::String(p.displayName));card->getProperties().set("category",juce::String(p.category));card->getProperties().set("subtitle",p.id==currentId?"● CURRENT SOUND":"Guitar · Starting sound");card->setToggleState(p.id==currentId,juce::dontSendNotification);
   const auto id=p.id;card->onClick=[this,id]{if(onPresetChosen)onPresetChosen(id);};grid.addAndMakeVisible(*card);cards.push_back(std::move(card));
   auto star=std::make_unique<PmxButton>(p.favorite?"★":"☆");star->onClick=[this,id]{for(auto& item:library)if(item.id==id){item.favorite=!item.favorite;if(onFavoriteChanged)onFavoriteChanged(id,item.favorite);break;}rebuild();};grid.addAndMakeVisible(*star);stars.push_back(std::move(star));
  }

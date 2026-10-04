@@ -19,7 +19,7 @@ public:
     bool resume();
     bool isRunning() const noexcept { return deviceAlive.load(); }
     void setSink(AudioSink* newSink) noexcept { sink.store(newSink, std::memory_order_release); }
-    [[nodiscard]] juce::AudioDeviceManager& deviceManager() noexcept { return manager; }
+    [[nodiscard]] juce::AudioIODevice* currentDevice() const noexcept {return device.get();}
 
 private:
     void audioDeviceIOCallbackWithContext(const float* const* inputChannelData, int numInputChannels,
@@ -30,10 +30,15 @@ private:
     void audioDeviceError(const juce::String&) override { deviceAlive.store(false); }
 
     juce::AudioDeviceManager manager;
+    std::unique_ptr<juce::AudioIODevice> device;
     std::atomic<AudioSink*> sink { nullptr };
     bool callbackAttached { false };
     std::atomic<bool> maintenance{false},deviceAlive{false};
     double preparedRate{};
     int preparedBlock{};
+    std::string requestedName;
+    double requestedRate{};
+    int requestedBlock{};
+    std::atomic<bool> startAuthorised{false};
 };
 } // namespace pmx::audio

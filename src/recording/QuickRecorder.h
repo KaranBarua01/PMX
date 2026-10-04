@@ -31,6 +31,7 @@ public:
     RecorderResult interruptForRecovery();
 
     [[nodiscard]] bool isRecording() const noexcept { return recording.load(std::memory_order_acquire); }
+    [[nodiscard]] bool needsFinalisation() const noexcept {return !isRecording()&&worker.joinable();}
     [[nodiscard]] std::uint64_t framesAccepted() const noexcept { return accepted.load(std::memory_order_relaxed); }
     [[nodiscard]] std::uint64_t droppedFrames() const noexcept { return dropped.load(std::memory_order_relaxed); }
 
@@ -54,5 +55,6 @@ private:
     std::ofstream output;
     std::filesystem::path path;
     std::uint64_t framesWritten { 0 };
+    std::atomic<bool> writerFailed{false};
 };
 } // namespace pmx::recording

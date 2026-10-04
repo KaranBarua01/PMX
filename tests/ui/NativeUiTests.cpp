@@ -2,12 +2,31 @@
 #include <juce_graphics/juce_graphics.h>
 #include <iostream>
 #include <filesystem>
+#include <fstream>
+#include "nam/NamProcessor.h"
+#include "ir/IrProcessor.h"
 
 namespace
 {
 bool checkBounds(juce::Component& component)
 {
     bool ok=true;
+    // Exercise the actually linked native engines, including static model registration.
+    const auto modelFile=directory.getChildFile("linear-test.nam");
+    modelFile.replaceWithText(R"({"version":"0.6.0","architecture":"Linear","config":{"receptive_field":1,"bias":false},"weights":[0.5],"sample_rate":48000})");
+    pmx::nam::NamProcessor nam;
+    const auto loaded=nam.load(std::filesystem::path(modelFile.getFullPathName().toStdString()),48000,128);
+    if(!loaded.ok){std::cerr<<"Native NAM load failed: "<<loaded.error<<'\n';ok=false;}
+    float samples[128]{};samples[0]=.5f;nam.process(samples,128);
+    if(loaded.ok&&std::abs(samples[0]-.25f)>.002f){std::cerr<<"Native NAM did not process its generated linear fixture\n";ok=false;}
+    const auto invalidFile=directory.getChildFile("invalid-test.nam");invalidFile.replaceWithText("invalid");
+    if(nam.load(std::filesystem::path(invalidFile.getFullPathName().toStdString()),48000,128).ok){std::cerr<<"Invalid NAM was accepted\n";ok=false;}
+    std::fill_n(samples,128,0.0f);samples[0]=.5f;nam.process(samples,128);
+    if(loaded.ok&&std::abs(samples[0]-.25f)>.002f){std::cerr<<"Invalid NAM destroyed the working model\n";ok=false;}
+    auto impulse=std::make_shared<pmx::ir::IrData>();impulse->sampleRate=48000;impulse->taps={1.0f,.5f};
+    pmx::ir::IrProcessor ir;ir.setPrepared(impulse,128);std::fill_n(samples,128,0.0f);samples[0]=.5f;ir.process(samples,128);
+    if(std::abs(samples[0]-.5f)>.002f||std::abs(samples[1]-.25f)>.002f){std::cerr<<"Prepared native convolution output is incorrect\n";ok=false;}
+    modelFile.deleteFile();invalidFile.deleteFile();
     for(int i=0;i<component.getNumChildComponents();++i)
     {
         auto& child=*component.getChildComponent(i);

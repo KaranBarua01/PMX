@@ -13,6 +13,7 @@ class LiveScreen final:public juce::Component {
 public:
  LiveScreen();void paint(juce::Graphics&) override;void resized() override;
  void toggleTuner();void setBypassVisual(bool);void setMutedVisual(bool);void setRecordingVisual(bool);
+ void editEffect(std::size_t i){openEditor(i);}
  void setStatusText(const std::string&,bool);void setPresetName(const std::string&);void setNamName(const std::string&);void setIrName(const std::string&);
  void setSoundState(const presets::SoundState&);void setMeters(float,float);void setTempo(double);
  void setTunerResult(const analysis::TunerResult& r){tunerView.setResult(r);}
