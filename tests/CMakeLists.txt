@@ -44,6 +44,7 @@ target_sources(pmx_processing_engine_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/src/ir/IrProcessor.cpp"
     "${PROJECT_SOURCE_DIR}/src/audio/TempoService.cpp"
     "${PROJECT_SOURCE_DIR}/src/dsp/Metronome.cpp"
+    "${PROJECT_SOURCE_DIR}/src/dsp/RhythmDrumMachine.cpp"
     "${PROJECT_SOURCE_DIR}/src/analysis/TunerTap.cpp")
 target_compile_features(pmx_processing_engine_tests PRIVATE cxx_std_20)
 add_test(NAME pmx.processing_engine COMMAND pmx_processing_engine_tests)
@@ -163,3 +164,11 @@ add_executable(pmx_sound_state_tests presets/SoundStateTests.cpp "${PROJECT_SOUR
 target_include_directories(pmx_sound_state_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(pmx_sound_state_tests PRIVATE cxx_std_20)
 add_test(NAME pmx.sound_state COMMAND pmx_sound_state_tests)
+
+
+add_executable(pmx_rhythm_drum_tests dsp/RhythmDrumMachineTests.cpp
+    "${PROJECT_SOURCE_DIR}/src/dsp/RhythmDrumMachine.cpp"
+    "${PROJECT_SOURCE_DIR}/src/audio/TempoService.cpp")
+target_include_directories(pmx_rhythm_drum_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(pmx_rhythm_drum_tests PRIVATE cxx_std_20)
+add_test(NAME pmx.rhythm_drums COMMAND pmx_rhythm_drum_tests)
