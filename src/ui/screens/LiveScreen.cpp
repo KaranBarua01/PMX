@@ -3,14 +3,14 @@
 #include <cmath>
 namespace pmx::ui {
 LiveScreen::LiveScreen() {
- for(auto* l:{&eyebrow,&title,&subtitle,&status,&mode,&tempoLabel,&clickLevelLabel,&rhythmLevelLabel}){addAndMakeVisible(*l);l->setColour(juce::Label::textColourId,juce::Colour(Theme::mutedText));}
+ for(auto* l:{&eyebrow,&title,&subtitle,&status,&mode,&tempoLabel,&clickLevelLabel,&rhythmLevelLabel,&stringDrumLevelLabel,&stringDrumStatus}){addAndMakeVisible(*l);l->setColour(juce::Label::textColourId,juce::Colour(Theme::mutedText));}
  eyebrow.setText("YOUR SOUND | CLEAN",juce::dontSendNotification);eyebrow.setFont(juce::FontOptions(11.0f,juce::Font::bold));eyebrow.setColour(juce::Label::textColourId,juce::Colour(Theme::accent));
  title.setText("DREAM CLEAN",juce::dontSendNotification);title.setFont(juce::FontOptions(36.0f,juce::Font::bold));title.setColour(juce::Label::textColourId,juce::Colour(Theme::text));
  subtitle.setText("Wide, glassy chords. A little shimmer. Room to breathe.",juce::dontSendNotification);
  mode.setText("GUITAR",juce::dontSendNotification);mode.setColour(juce::Label::textColourId,juce::Colour(Theme::accent));
  status.setText("POCKET MASTER OFFLINE",juce::dontSendNotification);status.setJustificationType(juce::Justification::centredRight);status.setFont(juce::FontOptions(11.0f));
- tempoLabel.setText("BPM",juce::dontSendNotification);clickLevelLabel.setText("CLICK LEVEL",juce::dontSendNotification);rhythmLevelLabel.setText("DRUM LEVEL",juce::dontSendNotification);
- for(auto* c:std::initializer_list<juce::Component*>{&tuner,&chooseSound,&perform,&save,&bypass,&mute,&record,&click,&tap,&openLooper,&bpm,&clickLevel,&rhythm,&rhythmPattern,&rhythmLevel,&namCard,&irCard,&tunerView,&effectEditor,&namIrBrowser})addAndMakeVisible(*c);
+ tempoLabel.setText("BPM",juce::dontSendNotification);clickLevelLabel.setText("CLICK LEVEL",juce::dontSendNotification);rhythmLevelLabel.setText("DRUM LEVEL",juce::dontSendNotification);stringDrumLevelLabel.setText("PAD LEVEL",juce::dontSendNotification);stringDrumStatus.setText("E=KICK  A=SNARE  D=HAT  G=OPEN HAT  B=TOM  HIGH E=CRASH",juce::dontSendNotification);
+ for(auto* c:std::initializer_list<juce::Component*>{&tuner,&chooseSound,&perform,&save,&bypass,&mute,&record,&click,&tap,&openLooper,&bpm,&clickLevel,&rhythm,&rhythmPattern,&rhythmLevel,&stringDrums,&stringDrumLevel,&namCard,&irCard,&tunerView,&effectEditor,&namIrBrowser})addAndMakeVisible(*c);
  tunerView.setVisible(false);effectEditor.setVisible(false);namIrBrowser.setVisible(false);
  tuner.onClick=[this]{toggleTuner();};save.onClick=[this]{if(onSavePreset)onSavePreset();};chooseSound.onClick=[this]{if(onChooseSound)onChooseSound();};perform.onClick=[this]{if(onPerformanceMode)onPerformanceMode();};
  bypass.setClickingTogglesState(true);bypass.onClick=[this]{if(onBypassChanged)onBypassChanged(bypass.getToggleState());};
@@ -19,10 +19,12 @@ LiveScreen::LiveScreen() {
  click.setClickingTogglesState(true);click.onClick=[this]{click.setButtonText(click.getToggleState()?"CLICK ON":"CLICK OFF");if(onMetronomeChanged)onMetronomeChanged(click.getToggleState());};
  rhythm.setClickingTogglesState(true);rhythm.onClick=[this]{rhythm.setButtonText(rhythm.getToggleState()?"DRUMS ON":"DRUMS OFF");if(onRhythmChanged)onRhythmChanged(rhythm.getToggleState());};
  rhythmPattern.onClick=[this]{static constexpr const char* names[]{"STRAIGHT","ROCK","POP","DRIVE"};rhythmPatternIndex=(rhythmPatternIndex+1)%4;rhythmPattern.setButtonText(names[rhythmPatternIndex]);if(onRhythmPattern)onRhythmPattern(rhythmPatternIndex);};
+ stringDrums.setClickingTogglesState(true);stringDrums.onClick=[this]{stringDrums.setButtonText(stringDrums.getToggleState()?"STRING DRUMS ON":"STRING DRUMS OFF");if(onStringDrumsChanged)onStringDrumsChanged(stringDrums.getToggleState());};
  tap.onClick=[this]{if(onTapTempo)onTapTempo();};
  bpm.setRange(30,300,1);bpm.setValue(120);bpm.setSliderStyle(juce::Slider::IncDecButtons);bpm.setTextBoxStyle(juce::Slider::TextBoxLeft,false,58,30);bpm.onValueChange=[this]{if(onTempoChanged)onTempoChanged(bpm.getValue());};
  clickLevel.setRange(0,100,1);clickLevel.setValue(12);clickLevel.setSliderStyle(juce::Slider::LinearHorizontal);clickLevel.setTextBoxStyle(juce::Slider::NoTextBox,false,0,0);clickLevel.onValueChange=[this]{if(onMetronomeLevel)onMetronomeLevel(static_cast<float>(clickLevel.getValue()/100));};
  rhythmLevel.setRange(0,100,1);rhythmLevel.setValue(35);rhythmLevel.setSliderStyle(juce::Slider::LinearHorizontal);rhythmLevel.setTextBoxStyle(juce::Slider::NoTextBox,false,0,0);rhythmLevel.onValueChange=[this]{if(onRhythmLevel)onRhythmLevel(static_cast<float>(rhythmLevel.getValue()/100));};
+ stringDrumLevel.setRange(0,100,1);stringDrumLevel.setValue(55);stringDrumLevel.setSliderStyle(juce::Slider::LinearHorizontal);stringDrumLevel.setTextBoxStyle(juce::Slider::NoTextBox,false,0,0);stringDrumLevel.onValueChange=[this]{if(onStringDrumsLevel)onStringDrumsLevel(static_cast<float>(stringDrumLevel.getValue()/100));};
  for(std::size_t i=0;i<modules.size();++i){addAndMakeVisible(modules[i]);modules[i].getProperties().set("subtitle",presets::effectSpecs[i].description);modules[i].onClick=[this,i]{openEditor(i);};}
  namCard.getProperties().set("category","AMP CAPTURE | NAM");namCard.getProperties().set("subtitle","Choose a local .nam file");
  irCard.getProperties().set("category","CABINET | IR");irCard.getProperties().set("subtitle","Choose a local WAV impulse");
@@ -46,6 +48,7 @@ void LiveScreen::setNamName(const std::string& s){namCard.setButtonText(juce::St
 void LiveScreen::setIrName(const std::string& s){irCard.setButtonText(juce::String(s));namIrBrowser.setIrName(s);}
 void LiveScreen::setMeters(float in,float out){inputPeak=in;outputPeak=out;repaint();}
 void LiveScreen::setTempo(double v){bpm.setValue(v,juce::dontSendNotification);}
+void LiveScreen::setStringDrumDetected(int value){static constexpr const char* names[]{"LOW E -> KICK","A -> SNARE","D -> CLOSED HAT","G -> OPEN HAT","B -> TOM","HIGH E -> CRASH"};if(value>=0&&value<6)stringDrumStatus.setText(juce::String("LAST HIT: ")+names[value],juce::dontSendNotification);else stringDrumStatus.setText("E=KICK  A=SNARE  D=HAT  G=OPEN HAT  B=TOM  HIGH E=CRASH",juce::dontSendNotification);}
 void LiveScreen::paint(juce::Graphics& g) {
  g.fillAll(juce::Colour(Theme::background));g.setColour(juce::Colour(Theme::panel));g.fillRoundedRectangle(soundCard.toFloat(),10);g.setColour(juce::Colour(Theme::border));g.drawRoundedRectangle(soundCard.toFloat().reduced(.5f),10,1);
  g.setColour(juce::Colour(Theme::mutedText));g.setFont(11.0f);g.drawText("YOUR SIGNAL CHAIN",0,soundCard.getBottom()+18,200,20,juce::Justification::centredLeft);
@@ -62,6 +65,7 @@ void LiveScreen::resized(){
  r.removeFromTop(12);auto footer=r.removeFromTop(compact?32:38);openLooper.setBounds(footer.removeFromRight(132));record.setBounds(footer.removeFromRight(136).reduced(6,0));perform.setBounds(footer.removeFromRight(100).reduced(6,0));tuner.setBounds(footer.removeFromLeft(84));footer.removeFromLeft(10);tempoLabel.setBounds(footer.removeFromLeft(32));bpm.setBounds(footer.removeFromLeft(88));footer.removeFromLeft(8);tap.setBounds(footer.removeFromLeft(108));footer.removeFromLeft(8);click.setBounds(footer.removeFromLeft(100));
  auto level=r.removeFromTop(24);clickLevelLabel.setBounds(level.removeFromLeft(100));clickLevel.setBounds(level.removeFromLeft(140));
  r.removeFromTop(6);auto rhythmRow=r.removeFromTop(compact?30:34);rhythm.setBounds(rhythmRow.removeFromLeft(104));rhythmRow.removeFromLeft(8);rhythmPattern.setBounds(rhythmRow.removeFromLeft(112));rhythmRow.removeFromLeft(14);rhythmLevelLabel.setBounds(rhythmRow.removeFromLeft(92));rhythmLevel.setBounds(rhythmRow.removeFromLeft(150));
+ r.removeFromTop(6);auto padRow=r.removeFromTop(compact?30:34);stringDrums.setBounds(padRow.removeFromLeft(150));padRow.removeFromLeft(10);stringDrumLevelLabel.setBounds(padRow.removeFromLeft(78));stringDrumLevel.setBounds(padRow.removeFromLeft(130));padRow.removeFromLeft(12);stringDrumStatus.setBounds(padRow);
  tunerView.setBounds(getWidth()-350,getHeight()-90,350,82);
  effectEditor.setBounds(getLocalBounds());namIrBrowser.setBounds(getLocalBounds());
 }
