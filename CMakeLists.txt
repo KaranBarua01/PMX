@@ -24,6 +24,12 @@ add_library(pmx_build_config INTERFACE)
 target_include_directories(pmx_build_config INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_compile_features(pmx_build_config INTERFACE cxx_std_20)
 
+if(MSVC)
+    # JUCE String(const char*) expects UTF-8. Force MSVC to compile source
+    # literals as UTF-8 so UI symbols render correctly on Windows.
+    target_compile_options(pmx_build_config INTERFACE /utf-8)
+endif()
+
 if(PMX_BUILD_GUI)
     include(cmake/Dependencies.cmake)
 
