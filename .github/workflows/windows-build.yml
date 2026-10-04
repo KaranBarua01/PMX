@@ -1,5 +1,8 @@
 name: Windows alpha build
 
+env:
+  PMX_VERSION: 0.2.0-alpha.${{ github.run_number }}
+
 on:
   push:
     branches: [main, "feat/**", "codex/**"]
@@ -17,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake -S . -B build -A x64 -DPMX_BUILD_GUI=ON -DPMX_BUILD_TESTS=ON -DPMX_ENABLE_NAM_CORE=ON
+        run: cmake -S . -B build -A x64 -DPMX_BUILD_GUI=ON -DPMX_BUILD_TESTS=ON -DPMX_ENABLE_NAM_CORE=ON -DPMX_VERSION_STRING="$env:PMX_VERSION"
 
       - name: Build Release
         run: cmake --build build --config Release --parallel
@@ -41,7 +44,7 @@ jobs:
 
       - name: Build installer
         shell: pwsh
-        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\PMX.iss'
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$env:PMX_VERSION" installer\PMX.iss'
 
       - name: Test install, native startup and data preservation
         shell: pwsh
@@ -61,7 +64,7 @@ jobs:
           name: PMX-windows-alpha-unsigned
           path: |
             build/PMX_artefacts/Release/PMX.exe
-            dist/PMX-0.2.0-alpha.2-x64.exe
+            dist/PMX-*-x64.exe
             dist/PMX-source.zip
             dist/BUILD-INFO.txt
             dist/SHA256SUMS.txt
@@ -81,7 +84,7 @@ jobs:
           if-no-files-found: ignore
 
   publish-preview:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/codex/pmx-stage1'
     needs: build
     runs-on: windows-2022
     permissions:
@@ -93,9 +96,14 @@ jobs:
           path: package
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.PMX_VERSION }}
+          target_commitish: ${{ github.sha }}
           prerelease: true
-          name: PMX ${{ github.ref_name }} — Pocket Master test alpha
+          make_latest: false
+          name: PMX v${{ env.PMX_VERSION }} — development preview
           body: |
+            Automatic PMX development preview from the latest validated codex/pmx-stage1 build.
+            This release exists so installed PMX alpha builds can update directly from the in-app Update button.
             Native Windows x64 test alpha. This build is unsigned.
             Download the x64 installer. PMX-source.zip contains the matching source and dependencies under AGPLv3.
             BUILD-INFO.txt identifies the commit; SHA256SUMS.txt contains download checksums.
