@@ -4,7 +4,7 @@
 
 namespace pmx::audio
 {
-ProcessingEngine::ProcessingEngine() : metronome(tempoService) {}
+ProcessingEngine::ProcessingEngine() : metronome(tempoService), rhythmDrums(tempoService) {}
 
 void ProcessingEngine::setInputGainDb(float db) noexcept
 {
@@ -24,12 +24,14 @@ void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, i
     guitarRack.prepare(newSampleRate, newMaxBlockSize);
     irProcessor.reset();
     metronome.prepare(newSampleRate);
+    rhythmDrums.prepare(newSampleRate);
     tunerCapture.prepare(32768);
     looperEngine.preparePreserving(newSampleRate, 120.0);
     quickRecorder.prepare(newSampleRate, 2, 2.0);
     loopScratchLeft.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     loopScratchRight.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     metronomeScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
+    rhythmScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     muted.store(true, std::memory_order_relaxed);
     commandRead.store(commandWrite.load());
     publishLoopStatus();
@@ -133,6 +135,16 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
                 if (outputs[c] != nullptr)
                     for (int i = 0; i < numSamples; ++i)
                         outputs[c][i] += metronomeScratch[static_cast<std::size_t>(i)];
+        }
+
+        if (numSamples <= static_cast<int>(rhythmScratch.size()))
+        {
+            std::fill_n(rhythmScratch.data(), numSamples, 0.0f);
+            rhythmDrums.process(rhythmScratch.data(), numSamples);
+            for (int c = 0; c < numOutputs; ++c)
+                if (outputs[c] != nullptr)
+                    for (int i = 0; i < numSamples; ++i)
+                        outputs[c][i] += rhythmScratch[static_cast<std::size_t>(i)];
         }
     }
 
