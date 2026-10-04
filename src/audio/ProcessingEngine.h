@@ -10,6 +10,7 @@
 #include "dsp/GuitarRack.h"
 #include "dsp/Metronome.h"
 #include "dsp/RhythmDrumMachine.h"
+#include "dsp/GuitarDrumTrigger.h"
 #include "ir/IrProcessor.h"
 #include "nam/NamProcessor.h"
 #include "looper/LooperEngine.h"
@@ -59,6 +60,10 @@ public:
     void setRhythmPattern(int pattern) noexcept { rhythmDrums.setPattern(pattern); }
     [[nodiscard]] bool rhythmEnabled() const noexcept { return rhythmDrums.isEnabled(); }
     [[nodiscard]] int rhythmPattern() const noexcept { return rhythmDrums.currentPattern(); }
+    void setStringDrumsEnabled(bool enabled) noexcept { stringDrums.setEnabled(enabled); }
+    void setStringDrumsLevel(float level) noexcept { stringDrums.setLevel(level); }
+    [[nodiscard]] bool stringDrumsEnabled() const noexcept { return stringDrums.isEnabled(); }
+    [[nodiscard]] int lastStringDrum() const noexcept { return stringDrums.lastDetectedString(); }
     void setInputGainDb(float db) noexcept;
     void setOutputGainDb(float db) noexcept;
     bool requestLoopCommand(LoopCommand) noexcept;
@@ -90,6 +95,7 @@ private:
     TempoService tempoService;
     dsp::Metronome metronome;
     dsp::RhythmDrumMachine rhythmDrums;
+    dsp::GuitarDrumTrigger stringDrums;
     analysis::TunerTap tunerCapture;
     looper::LooperEngine looperEngine;
     recording::QuickRecorder quickRecorder;
@@ -97,6 +103,7 @@ private:
     std::vector<float> loopScratchRight;
     std::vector<float> metronomeScratch;
     std::vector<float> rhythmScratch;
+    std::vector<float> stringDrumScratch;
     std::atomic<double> preparedSampleRate { 0.0 };
     std::atomic<int> preparedBlockSize { 0 };
 };
