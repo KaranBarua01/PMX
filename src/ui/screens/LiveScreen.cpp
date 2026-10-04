@@ -4,10 +4,10 @@
 namespace pmx::ui {
 LiveScreen::LiveScreen() {
  for(auto* l:{&eyebrow,&title,&subtitle,&status,&mode,&tempoLabel,&clickLevelLabel}){addAndMakeVisible(*l);l->setColour(juce::Label::textColourId,juce::Colour(Theme::mutedText));}
- eyebrow.setText("YOUR SOUND · CLEAN",juce::dontSendNotification);eyebrow.setFont(juce::FontOptions(11.0f,juce::Font::bold));eyebrow.setColour(juce::Label::textColourId,juce::Colour(Theme::accent));
+ eyebrow.setText("YOUR SOUND | CLEAN",juce::dontSendNotification);eyebrow.setFont(juce::FontOptions(11.0f,juce::Font::bold));eyebrow.setColour(juce::Label::textColourId,juce::Colour(Theme::accent));
  title.setText("DREAM CLEAN",juce::dontSendNotification);title.setFont(juce::FontOptions(36.0f,juce::Font::bold));title.setColour(juce::Label::textColourId,juce::Colour(Theme::text));
  subtitle.setText("Wide, glassy chords. A little shimmer. Room to breathe.",juce::dontSendNotification);
- mode.setText("♬  GUITAR",juce::dontSendNotification);mode.setColour(juce::Label::textColourId,juce::Colour(Theme::accent));
+ mode.setText("GUITAR",juce::dontSendNotification);mode.setColour(juce::Label::textColourId,juce::Colour(Theme::accent));
  status.setText("POCKET MASTER OFFLINE",juce::dontSendNotification);status.setJustificationType(juce::Justification::centredRight);status.setFont(juce::FontOptions(11.0f));
  tempoLabel.setText("BPM",juce::dontSendNotification);clickLevelLabel.setText("CLICK LEVEL",juce::dontSendNotification);
  for(auto* c:std::initializer_list<juce::Component*>{&tuner,&chooseSound,&perform,&save,&bypass,&mute,&record,&click,&tap,&openLooper,&bpm,&clickLevel,&namCard,&irCard,&tunerView,&effectEditor,&namIrBrowser})addAndMakeVisible(*c);
@@ -21,8 +21,8 @@ LiveScreen::LiveScreen() {
  bpm.setRange(30,300,1);bpm.setValue(120);bpm.setSliderStyle(juce::Slider::IncDecButtons);bpm.setTextBoxStyle(juce::Slider::TextBoxLeft,false,58,30);bpm.onValueChange=[this]{if(onTempoChanged)onTempoChanged(bpm.getValue());};
  clickLevel.setRange(0,100,1);clickLevel.setValue(12);clickLevel.setSliderStyle(juce::Slider::LinearHorizontal);clickLevel.setTextBoxStyle(juce::Slider::NoTextBox,false,0,0);clickLevel.onValueChange=[this]{if(onMetronomeLevel)onMetronomeLevel(static_cast<float>(clickLevel.getValue()/100));};
  for(std::size_t i=0;i<modules.size();++i){addAndMakeVisible(modules[i]);modules[i].getProperties().set("subtitle",presets::effectSpecs[i].description);modules[i].onClick=[this,i]{openEditor(i);};}
- namCard.getProperties().set("category","AMP CAPTURE · NAM");namCard.getProperties().set("subtitle","Choose a local .nam file");
- irCard.getProperties().set("category","CABINET · IR");irCard.getProperties().set("subtitle","Choose a local WAV impulse");
+ namCard.getProperties().set("category","AMP CAPTURE | NAM");namCard.getProperties().set("subtitle","Choose a local .nam file");
+ irCard.getProperties().set("category","CABINET | IR");irCard.getProperties().set("subtitle","Choose a local WAV impulse");
  namCard.onClick=irCard.onClick=[this]{openLibrary();};
  effectEditor.onChanged=[this](std::size_t i,const presets::EffectSettings& s){sound.effects[i]=s;modules[i].getProperties().set("active",s.enabled);modules[i].repaint();if(onEffectChanged)onEffectChanged(i,s);};
  effectEditor.onDone=[this]{effectEditor.setVisible(false);for(auto& m:modules)m.setToggleState(false,juce::dontSendNotification);};
