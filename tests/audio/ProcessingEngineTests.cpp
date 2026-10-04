@@ -160,5 +160,20 @@ int main()
     engine.process(takeInputs,1,outputs,2,4);
     guardAllocations=false;
     if(callbackAllocations!=0)return 30;
+
+    // Rhythm drums join the protected master path, follow shared BPM, and work with silent guitar input.
+    engine.prepare(1000.0,128,1,2);
+    engine.setMuted(false);
+    engine.setFxBypass(true);
+    engine.setMetronomeEnabled(false);
+    engine.setRhythmPattern(1);
+    engine.setRhythmLevel(0.5f);
+    engine.setRhythmEnabled(true);
+    float drumIn[128]{},drumL[128]{},drumR[128]{};
+    const float* drumInputs[]{drumIn};float* drumOutputs[]{drumL,drumR};
+    engine.process(drumInputs,1,drumOutputs,2,128);
+    bool heardDrums=false;for(float v:drumL)if(std::abs(v)>0.0001f)heardDrums=true;
+    if(!heardDrums)return 31;
+    engine.setRhythmEnabled(false);
     return 0;
 }
