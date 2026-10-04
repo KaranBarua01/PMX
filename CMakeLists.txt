@@ -23,6 +23,9 @@ configure_file(
 add_library(pmx_build_config INTERFACE)
 target_include_directories(pmx_build_config INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_compile_features(pmx_build_config INTERFACE cxx_std_20)
+if(WIN32)
+    target_link_libraries(pmx_build_config INTERFACE winhttp)
+endif()
 
 if(MSVC)
     # JUCE String(const char*) expects UTF-8. Force MSVC to compile source
@@ -102,9 +105,6 @@ if(PMX_BUILD_GUI)
     if(TARGET pmx_nam_core)
         target_link_libraries(PMX PRIVATE pmx_nam_core)
         target_compile_definitions(PMX PRIVATE PMX_HAS_NAM_CORE=1)
-    endif()
-    if(WIN32)
-        target_link_libraries(PMX PRIVATE winhttp)
     endif()
     target_compile_definitions(PMX PRIVATE
         PMX_HAS_JUCE_DSP=1
