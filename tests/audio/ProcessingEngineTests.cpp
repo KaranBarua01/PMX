@@ -175,5 +175,30 @@ int main()
     bool heardDrums=false;for(float v:drumL)if(std::abs(v)>0.0001f)heardDrums=true;
     if(!heardDrums)return 31;
     engine.setRhythmEnabled(false);
+
+    // String drum mode replaces the dry guitar hit and emits the mapped drum after pitch classification.
+    engine.prepare(44100.0,128,1,2);
+    engine.setMuted(false);
+    engine.setFxBypass(true);
+    engine.setStringDrumsLevel(0.8f);
+    engine.setStringDrumsEnabled(true);
+    std::array<float,1536> padInput{};
+    for(std::size_t i=0;i<padInput.size();++i)
+    {
+        const auto time=static_cast<double>(i)/44100.0;
+        padInput[i]=static_cast<float>(0.38*std::exp(-time*6.0)*(std::sin(2.0*3.141592653589793*82.4069*time)+0.22*std::sin(4.0*3.141592653589793*82.4069*time)));
+    }
+    bool heardTriggeredKick=false;
+    for(std::size_t offset=0;offset<padInput.size();offset+=128)
+    {
+        const float* padInputs[]{padInput.data()+offset};
+        float padL[128]{},padR[128]{};float* padOutputs[]{padL,padR};
+        engine.process(padInputs,1,padOutputs,2,128);
+        if(offset==0) for(float v:padL) if(std::abs(v)>0.000001f) return 32;
+        for(float v:padL) if(std::abs(v)>0.0001f) heardTriggeredKick=true;
+    }
+    if(engine.lastStringDrum()!=0)return 33;
+    if(!heardTriggeredKick)return 34;
+    engine.setStringDrumsEnabled(false);
     return 0;
 }
