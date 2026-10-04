@@ -69,6 +69,9 @@ void PmxRuntime::wireUi()
     shell.live().onMuteChanged=[this](bool mute){if(mute){monitoring=false;engine.setMuted(true);deviceController.setMonitoringEnabled(false);}else enableMonitoring();shell.live().setMutedVisual(!monitoring);};
     shell.live().onMetronomeChanged=[this](bool enabled){engine.setMetronomeEnabled(enabled);};
     shell.live().onMetronomeLevel=[this](float level){engine.setMetronomeLevel(level);};
+    shell.live().onRhythmChanged=[this](bool enabled){engine.setRhythmEnabled(enabled);};
+    shell.live().onRhythmLevel=[this](float level){engine.setRhythmLevel(level);};
+    shell.live().onRhythmPattern=[this](int pattern){engine.setRhythmPattern(pattern);};
     shell.live().onTempoChanged=[this](double bpm){engine.tempo().setBpm(bpm);};
     shell.live().onQuickRecord=[this]{toggleQuickRecord();};
     shell.looper().onLoopLevel=[this](float level){engine.setLoopLevel(level);};
