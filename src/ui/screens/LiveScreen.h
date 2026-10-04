@@ -23,17 +23,18 @@ public:
  float delayFeedbackPercent() const noexcept{return sound.effects[7].values[1];}
  float delayMixPercent() const noexcept{return sound.effects[7].values[2];}
  std::function<void()> onChooseSound,onPerformanceMode,onSavePreset,onTapTempo,onImportNam,onImportIr,onQuickRecord,onOpenLooper;
- std::function<void(bool)> onBypassChanged,onMuteChanged,onMetronomeChanged;
- std::function<void(float)> onMetronomeLevel;
+ std::function<void(bool)> onBypassChanged,onMuteChanged,onMetronomeChanged,onRhythmChanged;
+ std::function<void(float)> onMetronomeLevel,onRhythmLevel;
+ std::function<void(int)> onRhythmPattern;
  std::function<void(double)> onTempoChanged;
  std::function<void(std::size_t,const presets::EffectSettings&)> onEffectChanged;
  std::function<void(float,float,float)> onDelayChanged;
 private:
  void openEditor(std::size_t);void openLibrary();
- presets::SoundState sound;float inputPeak{},outputPeak{};
- juce::Rectangle<int> soundCard;juce::Label eyebrow,title,subtitle,status,mode,tempoLabel,clickLevelLabel;
- PmxButton tuner{"TUNER"},chooseSound{"CHOOSE A SOUND"},perform{"PERFORM"},save{"SAVE PRESET",ButtonKind::primary},bypass{"BYPASS"},mute{"UNMUTE"},record{"QUICK RECORD"},click{"CLICK OFF"},tap{"TAP TEMPO"},openLooper{"OPEN LOOPER"};
- juce::Slider bpm,clickLevel;TunerView tunerView;
+ presets::SoundState sound;float inputPeak{},outputPeak{};int rhythmPatternIndex{1};
+ juce::Rectangle<int> soundCard;juce::Label eyebrow,title,subtitle,status,mode,tempoLabel,clickLevelLabel,rhythmLevelLabel;
+ PmxButton tuner{"TUNER"},chooseSound{"CHOOSE A SOUND"},perform{"PERFORM"},save{"SAVE PRESET",ButtonKind::primary},bypass{"BYPASS"},mute{"UNMUTE"},record{"QUICK RECORD"},click{"CLICK OFF"},tap{"TAP TEMPO"},openLooper{"OPEN LOOPER"},rhythm{"DRUMS OFF"},rhythmPattern{"ROCK"};
+ juce::Slider bpm,clickLevel,rhythmLevel;TunerView tunerView;
  std::array<PmxButton,9> modules{PmxButton{"GATE"},PmxButton{"COMP"},PmxButton{"DRIVE"},PmxButton{"NAM"},PmxButton{"IR"},PmxButton{"EQ"},PmxButton{"MOD"},PmxButton{"DELAY"},PmxButton{"REVERB"}};
  PmxButton namCard{"IMPORT AN AMP"},irCard{"IMPORT A CABINET"};EffectEditor effectEditor;NamIrBrowser namIrBrowser;
 };}
