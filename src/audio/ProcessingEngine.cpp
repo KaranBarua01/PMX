@@ -25,6 +25,7 @@ void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, i
     irProcessor.reset();
     metronome.prepare(newSampleRate);
     rhythmDrums.prepare(newSampleRate);
+    stringDrums.prepare(newSampleRate);
     tunerCapture.prepare(32768);
     looperEngine.preparePreserving(newSampleRate, 120.0);
     quickRecorder.prepare(newSampleRate, 2, 2.0);
@@ -32,6 +33,7 @@ void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, i
     loopScratchRight.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     metronomeScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     rhythmScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
+    stringDrumScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     muted.store(true, std::memory_order_relaxed);
     commandRead.store(commandWrite.load());
     publishLoopStatus();
@@ -72,7 +74,7 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
     {
         auto* out = outputs[c];
         if (out == nullptr) continue;
-        if (masterMuted || !hasLiveInput)
+        if (masterMuted || !hasLiveInput || stringDrums.isEnabled())
             std::fill_n(out, numSamples, 0.0f);
         else
         {
@@ -87,7 +89,7 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
 
     if (!masterMuted)
     {
-        if (!fxBypass.load(std::memory_order_relaxed) && outputs[0] != nullptr)
+        if (!fxBypass.load(std::memory_order_relaxed) && !stringDrums.isEnabled() && outputs[0] != nullptr)
         {
             guitarRack.processPreModels(outputs[0], numSamples);
             if (guitarRack.isEnabled(dsp::RackModule::nam) && namProcessor.loaded())
@@ -97,6 +99,16 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
             guitarRack.processPostModels(outputs[0], numSamples);
             for (int c = 1; c < numOutputs; ++c)
                 if (outputs[c] != nullptr) std::copy_n(outputs[0], numSamples, outputs[c]);
+        }
+
+        if (numSamples <= static_cast<int>(stringDrumScratch.size()))
+        {
+            std::fill_n(stringDrumScratch.data(), numSamples, 0.0f);
+            stringDrums.process(hasLiveInput ? inputs[0] : nullptr, stringDrumScratch.data(), numSamples);
+            for (int c = 0; c < numOutputs; ++c)
+                if (outputs[c] != nullptr)
+                    for (int i = 0; i < numSamples; ++i)
+                        outputs[c][i] += stringDrumScratch[static_cast<std::size_t>(i)];
         }
 
         if (numSamples <= static_cast<int>(loopScratchLeft.size()))
