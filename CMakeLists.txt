@@ -103,6 +103,9 @@ if(PMX_BUILD_GUI)
         target_link_libraries(PMX PRIVATE pmx_nam_core)
         target_compile_definitions(PMX PRIVATE PMX_HAS_NAM_CORE=1)
     endif()
+    if(WIN32)
+        target_link_libraries(PMX PRIVATE winhttp)
+    endif()
     target_compile_definitions(PMX PRIVATE
         PMX_HAS_JUCE_DSP=1
         JUCE_ASIO=1
