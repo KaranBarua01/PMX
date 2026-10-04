@@ -17,6 +17,7 @@ public:
     void resized() override;
 
     void setAvailableDevices(const std::vector<audio::AudioDeviceInfo>& devices);
+    void setSelection(const audio::AudioDeviceSelection&);
     [[nodiscard]] audio::AudioDeviceSelection selectedAudioSetup() const;
     void setConnectionStatus(bool connected, const std::string& connectionText,
                              const std::string& detail, double driverLatencyMs);
@@ -28,6 +29,12 @@ public:
     std::function<void()> onTryAgain;
 
 private:
+    void refreshChannels();
+    std::vector<audio::AudioDeviceInfo> available;
+    std::vector<double> rates;
+    std::vector<int> buffers;
+    std::string detailText;
+    juce::Rectangle<int> connectionCard,stabilityCard,gainCard,latencyCard,helpCard;
     juce::Label title, subtitle, connectionTitle, connectionState, latencyTitle, latencyValue;
     juce::Label stabilityTitle, inputGainLabel, outputGainLabel, helpTitle, helpText;
     juce::ComboBox device, inputChannel, outputPair, sampleRate, bufferSize;

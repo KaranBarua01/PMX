@@ -11,9 +11,9 @@ LooperScreen::LooperScreen()
     title.setColour(juce::Label::textColourId, juce::Colour(Theme::text));
     subtitle.setText("ONE LOOP. ONE IDEA. KEEP WHAT FEELS RIGHT.", juce::dontSendNotification);
     subtitle.setColour(juce::Label::textColourId, juce::Colour(Theme::mutedText));
-    loopName.setText("Evening idea", juce::dontSendNotification);
+    loopName.setText("NEW LOOP", juce::dontSendNotification);
     loopName.setColour(juce::Label::textColourId, juce::Colour(Theme::text));
-    timing.setText("00:13 / 00:42", juce::dontSendNotification);
+    timing.setText("00:00 / 00:00", juce::dontSendNotification);
     timing.setJustificationType(juce::Justification::centredRight);
     timing.setColour(juce::Label::textColourId, juce::Colour(Theme::text));
     loopLevelLabel.setText("LOOP LEVEL", juce::dontSendNotification);
@@ -35,6 +35,14 @@ LooperScreen::LooperScreen()
     undo.onClick=[this]{if(onUndo)onUndo();}; redo.onClick=[this]{if(onRedo)onRedo();};
     clear.onClick=[this]{if(onClear)onClear();}; saveLoop.onClick=[this]{if(onSaveLoop)onSaveLoop();};
     exportWav.onClick=[this]{if(onExportWav)onExportWav();};
+    loopLevel.onValueChange=[this]{if(onLoopLevel)onLoopLevel(static_cast<float>(loopLevel.getValue()/100));};
+}
+
+void LooperScreen::setAvailability(bool connected,bool hasLoop,bool stopped,bool canUndo,bool canRedo)
+{
+    record.setEnabled(connected);play.setEnabled(connected&&hasLoop);overdub.setEnabled(connected&&hasLoop);
+    undo.setEnabled(connected&&canUndo);redo.setEnabled(connected&&canRedo);
+    saveLoop.setEnabled(hasLoop&&stopped);exportWav.setEnabled(hasLoop&&stopped);
 }
 
 void LooperScreen::setTiming(std::size_t currentFrames, std::size_t totalFrames, double sampleRate)
@@ -50,22 +58,20 @@ void LooperScreen::setLoopLevelPercent(float percent){loopLevel.setValue(percent
 void LooperScreen::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colour(Theme::background));
-    auto wave = getLocalBounds().reduced(24).withTrimmedTop(118).withHeight(220);
+    auto wave = getLocalBounds().withTrimmedTop(94).withHeight(220);
     g.setColour(juce::Colour(Theme::panel));
     g.fillRoundedRectangle(wave.toFloat(), static_cast<float>(Theme::cornerRadius));
     g.setColour(juce::Colour(Theme::border));
     g.drawRoundedRectangle(wave.toFloat(), static_cast<float>(Theme::cornerRadius), 1.0f);
 
     auto graph = wave.reduced(18, 48);
-    const int bars = 72;
+    const int bars = static_cast<int>(peaks.size());
     const float step = static_cast<float>(graph.getWidth()) / static_cast<float>(bars);
     for (int i = 0; i < bars; ++i)
     {
-        const float phase = static_cast<float>(i) * 0.47f;
-        const float shape = 0.24f + 0.68f * std::abs(std::sin(phase) * std::cos(phase * 0.31f));
-        const float h = shape * static_cast<float>(graph.getHeight());
+        const float h = juce::jmax(2.0f,juce::jlimit(0.0f,1.0f,peaks[static_cast<std::size_t>(i)])*static_cast<float>(graph.getHeight()));
         const float x = static_cast<float>(graph.getX()) + i * step;
-        const bool played = i < 25;
+        const bool played = static_cast<float>(i)/bars < progress;
         g.setColour(juce::Colour(played ? Theme::accent : Theme::border).withAlpha(played ? 0.95f : 0.9f));
         g.fillRoundedRectangle(x, static_cast<float>(graph.getCentreY()) - h * 0.5f,
                                juce::jmax(2.0f, step * 0.5f), h, 1.5f);
@@ -74,7 +80,7 @@ void LooperScreen::paint(juce::Graphics& g)
 
 void LooperScreen::resized()
 {
-    auto r = getLocalBounds().reduced(24);
+    auto r = getLocalBounds();
     auto header = r.removeFromTop(94);
     auto actions = header.removeFromRight(250).removeFromTop(38);
     exportWav.setBounds(actions.removeFromRight(110));

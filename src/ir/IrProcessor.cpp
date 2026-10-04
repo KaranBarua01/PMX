@@ -40,6 +40,7 @@ IrLoadResult IrProcessor::loadWav(const std::filesystem::path& path,double targe
     return {true,{},std::move(out)};
 }
 void IrProcessor::setPrepared(std::shared_ptr<const IrData> d){data=std::move(d);history.assign(data?data->taps.size():0,0.0f);write=0;}
+void IrProcessor::swapPrepared(IrProcessor& other) noexcept {data.swap(other.data);history.swap(other.history);std::swap(write,other.write);lowState=highState=0;}
 void IrProcessor::reset() noexcept {std::fill(history.begin(),history.end(),0.0f);write=0;}
 void IrProcessor::process(float* b,int n) noexcept {if(!b||!data||history.empty())return;const auto& taps=data->taps;for(int i=0;i<n;++i){history[write]=b[i];float y=0;size_t idx=write;for(size_t k=0;k<taps.size();++k){y+=history[idx]*taps[k];if(idx==0)idx=history.size()-1;else --idx;}b[i]=y;if(++write>=history.size())write=0;}}
 }

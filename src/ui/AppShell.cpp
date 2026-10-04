@@ -26,6 +26,10 @@ AppShell::AppShell()
     status.setJustificationType(juce::Justification::centredRight);
     status.setColour(juce::Label::textColourId, juce::Colour(Theme::mutedText));
     addAndMakeVisible(status);
+    footer.setText("Pocket Master is audio I/O only · All processing stays in PMX · Audio stays on this computer",juce::dontSendNotification);
+    footer.setColour(juce::Label::textColourId,juce::Colour(Theme::mutedText));
+    footer.setFont(juce::FontOptions(10.0f));
+    addAndMakeVisible(footer);
     addAndMakeVisible(update);
     addAndMakeVisible(liveScreen);
     addAndMakeVisible(presetsScreen);
@@ -50,6 +54,8 @@ AppShell::AppShell()
     liveScreen.onChooseSound = [this] { select(Page::presets); };
     liveScreen.onPerformanceMode = [this] { showPerformance(true); };
     performanceMode.onExit = [this] { showPerformance(false); };
+    liveScreen.onOpenLooper=[this]{select(Page::looper);};
+    showSetup(true);
 }
 
 void AppShell::setTopStatus(const std::string& text, bool healthy)
@@ -61,6 +67,10 @@ void AppShell::setTopStatus(const std::string& text, bool healthy)
 void AppShell::showSetup(bool show)
 {
     setupWizard.setVisible(show);
+    for(auto& button:nav)button->setVisible(!show);
+    update.setVisible(!show);
+    if(show){liveScreen.setVisible(false);presetsScreen.setVisible(false);looperScreen.setVisible(false);settingsScreen.setVisible(false);}
+    else select(page);
     if (show) setupWizard.toFront(false);
 }
 
@@ -69,6 +79,7 @@ void AppShell::select(Page next)
     performanceActive = false;
     performanceMode.setVisible(false);
     page = next;
+    for(std::size_t i=0;i<nav.size();++i)nav[i]->setToggleState(i==static_cast<std::size_t>(page),juce::dontSendNotification);
     liveScreen.setVisible(page == Page::live);
     presetsScreen.setVisible(page == Page::presets);
     looperScreen.setVisible(page == Page::looper);
@@ -95,7 +106,7 @@ bool AppShell::keyPressed(const juce::KeyPress& key)
     pmx::input::ShortcutContext context;
     if (auto* focused = juce::Component::getCurrentlyFocusedComponent())
         context.textEntryFocused = dynamic_cast<juce::TextEditor*>(focused) != nullptr;
-    context.modalDialogOpen = updateDialog.isVisible() || liveScreen.hasModalEditorOpen();
+    context.modalDialogOpen = setupWizard.isVisible() || updateDialog.isVisible() || liveScreen.hasModalEditorOpen() || juce::Component::getCurrentlyModalComponent()!=nullptr;
     const auto command = pmx::input::ShortcutManager::commandFor(key.getKeyCode(), context);
     if (!command) return false;
 
@@ -112,7 +123,7 @@ bool AppShell::keyPressed(const juce::KeyPress& key)
 
 juce::Rectangle<int> AppShell::contentBounds() const noexcept
 {
-    return getLocalBounds().withTrimmedTop(Theme::topBarHeight).reduced(Theme::pagePadding);
+    return getLocalBounds().withTrimmedTop(Theme::topBarHeight).withTrimmedBottom(24).reduced(Theme::pagePadding);
 }
 
 void AppShell::paint(juce::Graphics& g)
@@ -134,6 +145,7 @@ void AppShell::resized()
     }
     update.setBounds(top.removeFromRight(90).reduced(4, 0));
     status.setBounds(top.removeFromRight(180));
+    footer.setBounds(14,getHeight()-23,getWidth()-28,22);
     liveScreen.setBounds(contentBounds());
     presetsScreen.setBounds(contentBounds());
     looperScreen.setBounds(contentBounds());
@@ -143,8 +155,6 @@ void AppShell::resized()
     const int dialogH = layout.dialogHeight;
     updateDialog.setBounds((getWidth()-dialogW)/2, (getHeight()-dialogH)/2, dialogW, dialogH);
     performanceMode.setBounds(contentBounds());
-    const int setupW=juce::jmin(620,getWidth()-80);
-    const int setupH=juce::jmin(390,getHeight()-120);
-    setupWizard.setBounds((getWidth()-setupW)/2,(getHeight()-setupH)/2,setupW,setupH);
+    setupWizard.setBounds(getLocalBounds().withTrimmedTop(Theme::topBarHeight).withTrimmedBottom(24));
 }
 } // namespace pmx::ui

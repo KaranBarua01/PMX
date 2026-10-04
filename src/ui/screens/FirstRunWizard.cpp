@@ -15,7 +15,7 @@ FirstRunWizard::FirstRunWizard()
     icon.setFont(juce::FontOptions(28.0f, juce::Font::bold));
     title.setJustificationType(juce::Justification::centred);
     title.setColour(juce::Label::textColourId, juce::Colour(Theme::text));
-    title.setFont(juce::FontOptions(22.0f, juce::Font::bold));
+    title.setFont(juce::FontOptions(30.0f, juce::Font::bold));
     subtitle.setJustificationType(juce::Justification::centred);
     subtitle.setColour(juce::Label::textColourId, juce::Colour(Theme::mutedText));
     subtitle.setFont(juce::FontOptions(13.0f));
@@ -26,6 +26,8 @@ FirstRunWizard::FirstRunWizard()
     hint.setFont(juce::FontOptions(11.0f));
 
     primary.onClick = [this] { continuePressed(); };
+    addAndMakeVisible(offline);
+    offline.onClick=[this]{if(onFinished)onFinished();};
     secondary.onClick = [this]
     {
         if (setup.step() == state::SetupStep::deviceFound && onTestAudio)
@@ -88,7 +90,7 @@ void FirstRunWizard::refresh()
         secondary.setVisible(true);
         primary.setButtonText(setup.audioTestPassed() ? "CONTINUE" : "CONTINUE");
         primary.setEnabled(setup.audioTestPassed());
-        hint.setText(setup.audioTestPassed() ? "Audio test passed." : "PMX starts with monitoring muted for safety.", juce::dontSendNotification);
+        hint.setText(setup.audioTestPassed() ? "Play a note. Continue when you hear it through Pocket Master." : "Start with a low headphone level. TEST AUDIO enables monitoring.", juce::dontSendNotification);
     }
     else
     {
@@ -109,16 +111,18 @@ void FirstRunWizard::refresh()
 void FirstRunWizard::paint(juce::Graphics& g)
 {
     g.setColour(juce::Colour(Theme::panel));
-    g.fillRoundedRectangle(getLocalBounds().toFloat(), Theme::cornerRadius + 2.0f);
+    g.fillRoundedRectangle(card.toFloat(), Theme::cornerRadius + 2.0f);
     g.setColour(juce::Colour(Theme::border));
-    g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(0.5f), Theme::cornerRadius + 2.0f, 1.0f);
+    g.drawRoundedRectangle(card.toFloat().reduced(0.5f), Theme::cornerRadius + 2.0f, 1.0f);
 }
 
 void FirstRunWizard::resized()
 {
-    auto r = getLocalBounds().reduced(42, 26);
-    stepIndicator.setBounds(r.removeFromTop(28));
-    r.removeFromTop(16);
+    const int width=juce::jmin(1000,static_cast<int>(getWidth()*.53));
+    const int height=juce::jlimit(400,540,static_cast<int>(getHeight()*.60));
+    card=getLocalBounds().withSizeKeepingCentre(width,height);
+    stepIndicator.setBounds(card.getX(),card.getY()-46,card.getWidth(),28);
+    auto r=card.reduced(36,juce::jmax(24,(height-352)/2));
     icon.setBounds(r.removeFromTop(44));
     title.setBounds(r.removeFromTop(40));
     subtitle.setBounds(r.removeFromTop(46));
@@ -136,5 +140,6 @@ void FirstRunWizard::resized()
         primary.setBounds(buttons.withSizeKeepingCentre(160, 38));
     }
     hint.setBounds(r.removeFromTop(32));
+    offline.setBounds(card.getCentreX()-78,card.getBottom()+18,156,30);
 }
 } // namespace pmx::ui

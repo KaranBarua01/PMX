@@ -27,6 +27,8 @@ PmxRuntime::PmxRuntime(ui::AppShell& ui)
     audioHost.setSink(&engine);
     engine.setMuted(true);
     wireUi();
+    applyPreset(presets::factoryPresets()[4]);
+    refreshPresets();
     shell.setTopStatus(std::string("PMX ")+std::string(pmx::AppVersion::current())+"  •  OFFLINE",false);
     startTimerHz(20);
 }
@@ -37,11 +39,12 @@ PmxRuntime::~PmxRuntime()
     engine.setMuted(true);
     if(engine.recorder().isRecording()) engine.recorder().stop();
     audioHost.close();
+    if(assetLoad.valid())assetLoad.wait();
 }
 
 std::filesystem::path PmxRuntime::appDataDirectory() const
 {
-    const auto root=juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("PMX");
+    const auto root=juce::File(juce::SystemStats::getEnvironmentVariable("LOCALAPPDATA",juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getFullPathName())).getChildFile("PMX");
     root.createDirectory();
     return std::filesystem::path(root.getFullPathName().toStdString());
 }
@@ -62,24 +65,27 @@ void PmxRuntime::wireUi()
 
     shell.live().onBypassChanged=[this](bool enabled){bypassed=enabled;engine.setFxBypass(enabled);};
     shell.live().onSavePreset=[this]{saveCurrentPreset();};
-    shell.live().onDelayChanged=[this](float timeMs,float feedback,float mix){
-        auto& delay=engine.rack().delayEffect();
-        delay.setTimeMs(timeMs); delay.setFeedback(feedback/100.0f); delay.setMix(mix/100.0f);
-        engine.rack().setEnabled(dsp::RackModule::delay,true);
-    };
+    shell.live().onEffectChanged=[this](std::size_t i,const presets::EffectSettings& value){sound.effects[i]=value;applyEffect(i,value);};
+    shell.live().onMuteChanged=[this](bool mute){if(mute){monitoring=false;engine.setMuted(true);deviceController.setMonitoringEnabled(false);}else enableMonitoring();shell.live().setMutedVisual(!monitoring);};
+    shell.live().onMetronomeChanged=[this](bool enabled){engine.setMetronomeEnabled(enabled);};
+    shell.live().onMetronomeLevel=[this](float level){engine.setMetronomeLevel(level);};
+    shell.live().onTempoChanged=[this](double bpm){engine.tempo().setBpm(bpm);};
+    shell.live().onQuickRecord=[this]{toggleQuickRecord();};
+    shell.looper().onLoopLevel=[this](float level){engine.setLoopLevel(level);};
     shell.live().onTapTempo=[this]{tapTempo();};
     shell.live().onImportNam=[this]{chooseNam();};
     shell.live().onImportIr=[this]{chooseIr();};
 
+    shell.presets().onFavoriteChanged=[this](const std::string& id,bool favorite){for(auto p:presetLibrary)if(p.id==id){p.favorite=favorite;presetStore.save(p);break;}};
     shell.presets().onSavePreset=[this]{saveCurrentPreset();};
     shell.presets().onPresetChosen=[this](const std::string& name){choosePreset(name);};
 
-    shell.looper().onRecord=[this]{engine.looper().record();};
-    shell.looper().onPlay=[this]{engine.looper().play();};
-    shell.looper().onOverdub=[this]{engine.looper().overdub();};
-    shell.looper().onStop=[this]{engine.looper().stop();};
-    shell.looper().onUndo=[this]{engine.looper().undo();};
-    shell.looper().onRedo=[this]{engine.looper().redo();};
+    shell.looper().onRecord=[this]{loopCommand(audio::LoopCommand::record);};
+    shell.looper().onPlay=[this]{loopCommand(audio::LoopCommand::play);};
+    shell.looper().onOverdub=[this]{loopCommand(audio::LoopCommand::overdub);};
+    shell.looper().onStop=[this]{loopCommand(audio::LoopCommand::stop);};
+    shell.looper().onUndo=[this]{loopCommand(audio::LoopCommand::undo);};
+    shell.looper().onRedo=[this]{loopCommand(audio::LoopCommand::redo);};
     shell.looper().onClear=[this]{
         const auto options=juce::MessageBoxOptions::makeOptionsOkCancel(
             juce::MessageBoxIconType::WarningIcon,
@@ -88,7 +94,7 @@ void PmxRuntime::wireUi()
             "CLEAR",
             "CANCEL",
             &shell);
-        juce::AlertWindow::showAsync(options,[this](int result){ if(result==1) engine.looper().clear(); });
+        juce::AlertWindow::showAsync(options,[this](int result){ if(result==1) loopCommand(audio::LoopCommand::clear); });
     };
     shell.looper().onSaveLoop=[this]{saveLoopToLibrary();};
     shell.looper().onExportWav=[this]{exportLoop();};
@@ -119,7 +125,9 @@ void PmxRuntime::discoverAndOpen()
 
 bool PmxRuntime::applySelection(const audio::AudioDeviceSelection& selection,bool enableMonitor)
 {
+    if(assetLoad.valid()||engine.recorder().isRecording()||isActiveLoop(engine.loopStatus().state)||engine.loopStatus().pendingCommands){showInfo("Finish the current take first","Stop the loop and Quick Recorder before changing audio settings.");return false;}
     const auto devices=audioHost.scan();
+    shell.settings().setAvailableDevices(devices);
     deviceController.updateAvailableDevices(devices);
     if(!deviceController.open(selection))
     {
@@ -143,14 +151,17 @@ bool PmxRuntime::applySelection(const audio::AudioDeviceSelection& selection,boo
     }
 
     currentSelection=selection;
+    shell.settings().setSelection(selection);
     connected=true;
-    monitoring=enableMonitor;
+    monitoring=false;
+    enableMonitor=false;
     deviceController.setMonitoringEnabled(enableMonitor);
     engine.setMuted(!enableMonitor);
     engine.setInputGainDb(shell.settings().inputGainDb());
     engine.setOutputGainDb(shell.settings().outputGainDb());
     shell.live().setStatusText("● POCKET MASTER CONNECTED    "+std::to_string(static_cast<int>(selection.sampleRate/1000.0))+" kHz • "+std::to_string(selection.bufferSize)+" samples",true);
     shell.setTopStatus("PMX 0.2 α  •  CONNECTED",true);
+    shell.live().setMutedVisual(true);
     updateDiagnostics();
     return true;
 }
@@ -163,6 +174,7 @@ void PmxRuntime::enableMonitoring()
         if(!connected) return;
     }
     monitoring=true;
+    shell.live().setMutedVisual(false);
     deviceController.setMonitoringEnabled(true);
     engine.setMuted(false);
     shell.live().setStatusText("● POCKET MASTER CONNECTED    MONITORING ON",true);
@@ -211,30 +223,29 @@ void PmxRuntime::chooseIr()
 
 void PmxRuntime::loadNam(const std::filesystem::path& path)
 {
-    if(isActiveLoop(engine.looper().state())){showInfo("Stop the loop first","Stop playback/recording before changing the NAM model.");return;}
-    const bool resume=monitoring;
-    engine.setMuted(true); audioHost.close();
+    if(assetLoad.valid()){showInfo("Sound loading","Wait for the current import to finish.");return;}
     const auto sr=currentSelection?currentSelection->sampleRate:44100.0;
     const auto block=currentSelection?currentSelection->bufferSize:128;
-    const auto result=engine.nam().load(path,sr,block);
-    if(currentSelection) audioHost.open(*currentSelection);
-    engine.setMuted(!resume);
-    if(!result.ok){showInfo("NAM could not be loaded",juce::String(result.error),juce::MessageBoxIconType::WarningIcon);return;}
-    currentNamPath=path; engine.rack().setEnabled(dsp::RackModule::nam,true); shell.live().setNamName(path.stem().string());
+    assetLoad=std::async(std::launch::async,[path,sr,block]{
+        PreparedAsset result;result.path=path;result.rate=sr;result.block=block;
+        result.nam=std::make_unique<nam::NamProcessor>();
+        auto loaded=result.nam->load(path,sr,block);
+        if(!loaded.ok){result.error=loaded.error;result.nam.reset();}
+        return result;
+    });
 }
-
 void PmxRuntime::loadIr(const std::filesystem::path& path)
 {
-    if(isActiveLoop(engine.looper().state())){showInfo("Stop the loop first","Stop playback/recording before changing the cabinet IR.");return;}
-    const bool resume=monitoring;
-    engine.setMuted(true); audioHost.close();
+    if(assetLoad.valid()){showInfo("Sound loading","Wait for the current import to finish.");return;}
     const auto sr=currentSelection?currentSelection->sampleRate:44100.0;
-    const auto loaded=ir::IrProcessor::loadWav(path,sr,8192);
-    if(loaded.ok) engine.ir().setPrepared(loaded.data);
-    if(currentSelection) audioHost.open(*currentSelection);
-    engine.setMuted(!resume);
-    if(!loaded.ok){showInfo("IR could not be loaded",juce::String(loaded.error),juce::MessageBoxIconType::WarningIcon);return;}
-    currentIrPath=path; engine.rack().setEnabled(dsp::RackModule::ir,true); shell.live().setIrName(path.stem().string());
+    const auto block=currentSelection?currentSelection->bufferSize:128;
+    assetLoad=std::async(std::launch::async,[path,sr,block]{
+        PreparedAsset result;result.path=path;result.rate=sr;result.block=block;
+        auto loaded=ir::IrProcessor::loadWav(path,sr,8192);
+        if(!loaded.ok)result.error=loaded.error;
+        else{result.ir=std::make_unique<ir::IrProcessor>();result.ir->setPrepared(std::move(loaded.data));}
+        return result;
+    });
 }
 
 std::string PmxRuntime::slugify(const std::string& value)
@@ -249,63 +260,100 @@ std::string PmxRuntime::slugify(const std::string& value)
     return out.empty()?"preset":out;
 }
 
+void PmxRuntime::refreshPresets()
+{
+    presetLibrary=presets::factoryPresets();
+    for(const auto& saved:presetStore.list()){
+        const auto it=std::find_if(presetLibrary.begin(),presetLibrary.end(),[&](const auto& p){return p.id==saved.id;});
+        if(it!=presetLibrary.end())*it=saved;else presetLibrary.push_back(saved);
+    }
+    shell.presets().setPresets(presetLibrary);
+}
 void PmxRuntime::saveCurrentPreset()
 {
-    presets::Preset p;
-    p.id=slugify(currentPresetName); p.displayName=currentPresetName; p.category="User";
-    const auto names=dsp::GuitarRack::moduleNames();
-    for(unsigned i=0;i<static_cast<unsigned>(dsp::RackModule::count);++i)
-        p.modules[std::string(names[i])]=engine.rack().isEnabled(static_cast<dsp::RackModule>(i));
-    p.parameters["delay.timeMs"]=shell.live().delayTimeMs();
-    p.parameters["delay.feedbackPercent"]=shell.live().delayFeedbackPercent();
-    p.parameters["delay.mixPercent"]=shell.live().delayMixPercent();
-    if(!currentNamPath.empty()){p.nam.id=currentNamPath.stem().string();p.nam.path=currentNamPath;}
-    if(!currentIrPath.empty()){p.ir.id=currentIrPath.stem().string();p.ir.path=currentIrPath;}
-    const auto result=presetStore.save(p);
-    if(result.ok) showInfo("Preset saved",juce::String(p.displayName)+" is saved in your PMX library.");
-    else showInfo("Preset could not be saved",juce::String(result.error),juce::MessageBoxIconType::WarningIcon);
+    auto* dialog=new juce::AlertWindow("Save your sound","Give this sound a name.",juce::MessageBoxIconType::NoIcon,&shell);
+    dialog->addTextEditor("name",juce::String(currentPresetName),"Name");
+    dialog->addButton("SAVE",1);dialog->addButton("CANCEL",0);
+    juce::Component::SafePointer<juce::AlertWindow> safe(dialog);
+    dialog->enterModalState(true,juce::ModalCallbackFunction::create([this,safe](int result){
+        if(result!=1||safe==nullptr)return;
+        const auto name=safe->getTextEditorContents("name").trim().toStdString();
+        if(name.empty())return;
+        auto p=sound.toPreset("user-"+slugify(name),name,"Special");
+        const auto saved=presetStore.save(p);
+        if(saved.ok){currentPresetName=name;shell.live().setPresetName(name);refreshPresets();shell.presets().setCurrent(p.id);}
+        else showInfo("Preset could not be saved",juce::String(saved.error),juce::MessageBoxIconType::WarningIcon);
+    }),true);
 }
-
-void PmxRuntime::choosePreset(const std::string& name)
+void PmxRuntime::choosePreset(const std::string& id)
 {
-    currentPresetName=name; shell.live().setPresetName(name); shell.goTo(ui::AppShell::Page::live);
-    const auto loaded=presetStore.load(slugify(name));
-    if(loaded.ok) applyPreset(loaded.preset);
+    const auto it=std::find_if(presetLibrary.begin(),presetLibrary.end(),[&](const auto& p){return p.id==id;});
+    if(it==presetLibrary.end())return;
+    applyPreset(*it);shell.presets().setCurrent(id);shell.goTo(ui::AppShell::Page::live);
 }
-
+void PmxRuntime::applyEffect(std::size_t i,const presets::EffectSettings& settings)
+{
+    auto& rack=engine.rack();const auto& v=settings.values;
+    rack.setEnabled(static_cast<dsp::RackModule>(i),settings.enabled);
+    switch(i){
+        case 0:rack.gateEffect().setThresholdDb(v[0]);rack.gateEffect().setAttackMs(v[1]);rack.gateEffect().setReleaseMs(v[2]);break;
+        case 1:rack.compressorEffect().setThresholdDb(v[0]);rack.compressorEffect().setRatio(v[1]);rack.compressorEffect().setMakeupDb(v[2]);break;
+        case 2:rack.driveEffect().setAmount(v[0]/100);rack.driveEffect().setTone(v[1]/100);rack.driveEffect().setOutputDb(v[2]);break;
+        case 3:engine.nam().setInputTrimDb(v[0]);engine.nam().setOutputTrimDb(v[1]);break;
+        case 4:engine.ir().setLowCutHz(v[0]);engine.ir().setHighCutHz(v[1]);engine.ir().setOutputDb(v[2]);break;
+        case 5:rack.eqEffect().setLowDb(v[0]);rack.eqEffect().setMidDb(v[1]);rack.eqEffect().setHighDb(v[2]);break;
+        case 6:rack.chorusEffect().setRateHz(v[0]);rack.chorusEffect().setDepth(v[1]/100);rack.chorusEffect().setMix(v[2]/100);break;
+        case 7:rack.delayEffect().setTimeMs(v[0]);rack.delayEffect().setFeedback(v[1]/100);rack.delayEffect().setMix(v[2]/100);break;
+        case 8:rack.reverbEffect().setDecay(v[0]/100);rack.reverbEffect().setTone(v[1]/100);rack.reverbEffect().setMix(v[2]/100);break;
+    }
+}
 void PmxRuntime::applyPreset(const presets::Preset& preset)
 {
-    const auto names=dsp::GuitarRack::moduleNames();
-    for(unsigned i=0;i<static_cast<unsigned>(dsp::RackModule::count);++i)
-    {
-        const auto it=preset.modules.find(std::string(names[i]));
-        if(it!=preset.modules.end()) engine.rack().setEnabled(static_cast<dsp::RackModule>(i),it->second);
-    }
-    auto value=[&](const char* key,double fallback){const auto it=preset.parameters.find(key);return it==preset.parameters.end()?fallback:it->second;};
-    auto& delay=engine.rack().delayEffect();
-    delay.setTimeMs(static_cast<float>(value("delay.timeMs",420.0)));
-    delay.setFeedback(static_cast<float>(value("delay.feedbackPercent",23.0)/100.0));
-    delay.setMix(static_cast<float>(value("delay.mixPercent",24.0)/100.0));
-    currentPresetName=preset.displayName; shell.live().setPresetName(currentPresetName);
-    if(!preset.nam.path.empty()&&std::filesystem::exists(preset.nam.path)) loadNam(preset.nam.path);
-    if(!preset.ir.path.empty()&&std::filesystem::exists(preset.ir.path)) loadIr(preset.ir.path);
+    if(assetLoad.valid()){showInfo("Sound loading","Wait for the current import to finish before choosing another preset.");return;}
+    sound=presets::SoundState::fromPreset(preset);
+    const auto missing=presetStore.missingAssets(preset);
+    if(!missing.empty()){juce::String warning;for(const auto& item:missing)warning+=juce::String(item)+"\n";showInfo("Preset needs a file",warning+"Import the missing file to restore this sound.",juce::MessageBoxIconType::WarningIcon);}
+    // Clear old references when a preset has no model. Loaded processing is bypassed until its new file is ready.
+    for(std::size_t i=0;i<9;++i)applyEffect(i,sound.effects[i]);
+    currentPresetName=preset.displayName;shell.live().setPresetName(currentPresetName);shell.live().setSoundState(sound);
+    engine.rack().setEnabled(dsp::RackModule::nam,false);engine.rack().setEnabled(dsp::RackModule::ir,false);
+    if(!preset.nam.path.empty()&&std::filesystem::exists(preset.nam.path))loadNam(preset.nam.path);
+    // A second asset is queued after the NAM worker finishes in the timer.
+    if(!assetLoad.valid()&&!preset.ir.path.empty()&&std::filesystem::exists(preset.ir.path))loadIr(preset.ir.path);
+    shell.live().setNamName(preset.nam.path.empty()?"IMPORT AN AMP":preset.nam.path.stem().string());
+    shell.live().setIrName(preset.ir.path.empty()?"IMPORT A CABINET":preset.ir.path.stem().string());
+}
+void PmxRuntime::loopCommand(audio::LoopCommand command)
+{
+    if(!connected){showInfo("Connect Pocket Master","The live looper needs an open Pocket Master ASIO connection.");return;}
+    if(!monitoring && (command==audio::LoopCommand::record||command==audio::LoopCommand::play||command==audio::LoopCommand::overdub)){showInfo("Enable monitoring","Choose UNMUTE before starting the loop.");return;}
+    if(!engine.requestLoopCommand(command))showInfo("Looper busy","Wait a moment and try again.");
+}
+looper::LoopSnapshot PmxRuntime::snapshotLoop()
+{
+    const auto state=engine.loopStatus();
+    if(state.pendingCommands||state.state!=looper::LooperState::stopped)return {};
+    audioHost.suspend();
+    auto snapshot=engine.looper().snapshot();
+    if(connected&&!audioHost.resume()){connected=false;monitoring=false;engine.setMuted(true);}
+    return snapshot;
 }
 
 void PmxRuntime::saveLoopToLibrary()
 {
-    if(engine.looper().state()!=looper::LooperState::stopped){showInfo("Stop the loop first","Saved loops are written only from the Stopped state.");return;}
+    if(engine.loopStatus().pendingCommands||engine.loopStatus().state!=looper::LooperState::stopped){showInfo("Stop the loop first","Saved loops are written only from the Stopped state.");return;}
     const auto dir=appDataDirectory()/"loops"; std::error_code ec; std::filesystem::create_directories(dir,ec);
     const auto stamp=juce::Time::getCurrentTime().formatted("%Y%m%d-%H%M%S").toStdString();
-    loopWrite=looper::LoopExportService::writeWav24Async(engine.looper().snapshot(),dir/("PMX-Loop-"+stamp+".wav"));
+    loopWrite=looper::LoopExportService::writeWav24Async(snapshotLoop(),dir/("PMX-Loop-"+stamp+".wav"));
 }
 
 void PmxRuntime::exportLoop()
 {
-    if(engine.looper().state()!=looper::LooperState::stopped){showInfo("Stop the loop first","Export is available when the loop is stopped.");return;}
+    if(engine.loopStatus().pendingCommands||engine.loopStatus().state!=looper::LooperState::stopped){showInfo("Stop the loop first","Export is available when the loop is stopped.");return;}
     chooser=std::make_unique<juce::FileChooser>("Export PMX loop",juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("PMX-Loop.wav"),"*.wav");
     chooser->launchAsync(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::canSelectFiles,[this](const juce::FileChooser& fc){
         auto file=fc.getResult(); if(file==juce::File{}) return; if(file.getFileExtension().isEmpty()) file=file.withFileExtension("wav");
-        loopWrite=looper::LoopExportService::writeWav24Async(engine.looper().snapshot(),std::filesystem::path(file.getFullPathName().toStdString()));
+        loopWrite=looper::LoopExportService::writeWav24Async(snapshotLoop(),std::filesystem::path(file.getFullPathName().toStdString()));
     });
 }
 
@@ -317,6 +365,7 @@ void PmxRuntime::toggleQuickRecord()
         showInfo(result.ok?"Recording saved":"Recording problem",result.ok?juce::String(result.path.string()):juce::String(result.error),result.ok?juce::MessageBoxIconType::InfoIcon:juce::MessageBoxIconType::WarningIcon);
         return;
     }
+    if(!connected||!monitoring){showInfo("Enable monitoring","Connect Pocket Master and choose UNMUTE before recording.");return;}
     const auto base=juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("PMX Recordings"); base.createDirectory();
     const auto name="PMX-Take-"+juce::Time::getCurrentTime().formatted("%Y%m%d-%H%M%S")+".wav";
     const auto result=engine.recorder().start(std::filesystem::path(base.getChildFile(name).getFullPathName().toStdString()));
@@ -328,18 +377,18 @@ void PmxRuntime::handleShortcut(input::ShortcutCommand command)
     switch(command)
     {
         case input::ShortcutCommand::bypass: bypassed=!bypassed; engine.setFxBypass(bypassed); shell.live().setBypassVisual(bypassed); break;
-        case input::ShortcutCommand::mute: monitoring=!monitoring; engine.setMuted(!monitoring); deviceController.setMonitoringEnabled(monitoring); break;
+        case input::ShortcutCommand::mute: if(monitoring){monitoring=false;engine.setMuted(true);deviceController.setMonitoringEnabled(false);}else enableMonitoring();shell.live().setMutedVisual(!monitoring);break;
         case input::ShortcutCommand::tuner: break;
         case input::ShortcutCommand::loopTransport:
-            switch(engine.looper().state())
+            switch(engine.loopStatus().state)
             {
-                case looper::LooperState::empty: case looper::LooperState::stopped: engine.looper().record(); break;
-                case looper::LooperState::recording: engine.looper().play(); break;
-                case looper::LooperState::playing: engine.looper().overdub(); break;
-                case looper::LooperState::overdubbing: engine.looper().play(); break;
+                case looper::LooperState::empty: case looper::LooperState::stopped: loopCommand(audio::LoopCommand::record); break;
+                case looper::LooperState::recording: loopCommand(audio::LoopCommand::play); break;
+                case looper::LooperState::playing: loopCommand(audio::LoopCommand::overdub); break;
+                case looper::LooperState::overdubbing: loopCommand(audio::LoopCommand::play); break;
             }
             break;
-        case input::ShortcutCommand::stop: engine.looper().stop(); break;
+        case input::ShortcutCommand::stop: loopCommand(audio::LoopCommand::stop); break;
         case input::ShortcutCommand::tapTempo: tapTempo(); break;
         case input::ShortcutCommand::quickRecord: toggleQuickRecord(); break;
     }
@@ -352,12 +401,15 @@ juce::String PmxRuntime::looperStateText(looper::LooperState state)
 
 void PmxRuntime::updateLooperUi()
 {
-    const auto& l=engine.looper(); shell.looper().setTransportState(looperStateText(l.state())); shell.looper().setTiming(l.recordedFrames(),l.loopFrames(),engine.sampleRate());
+    const auto status=engine.loopStatus();
+    shell.looper().setTransportState(looperStateText(status.state));
+    shell.looper().setTiming(status.state==looper::LooperState::recording?status.recordedFrames:status.position,status.loopFrames,engine.sampleRate());
+    shell.looper().setAvailability(connected&&monitoring,status.loopFrames>0,status.state==looper::LooperState::stopped&&!status.pendingCommands,status.canUndo,status.canRedo);
 }
 
 void PmxRuntime::installUpdate(const std::filesystem::path& path)
 {
-    if(isActiveLoop(engine.looper().state())||engine.recorder().isRecording())
+    if(assetLoad.valid()||engine.loopStatus().pendingCommands||isActiveLoop(engine.loopStatus().state)||engine.recorder().isRecording())
     {
         showInfo("Finish the active take first","Stop the loop and Quick Recorder before installing an update.",juce::MessageBoxIconType::WarningIcon); return;
     }
@@ -368,17 +420,36 @@ void PmxRuntime::installUpdate(const std::filesystem::path& path)
 
 void PmxRuntime::timerCallback()
 {
-    if(connected && audioHost.deviceManager().getCurrentAudioDevice()==nullptr)
+    if(connected && !audioHost.isRunning())
     {
-        connected=false; monitoring=false; engine.setMuted(true); deviceController.notifyDisconnected();
+        connected=false; monitoring=false; engine.setMuted(true);audioHost.close();if(engine.recorder().isRecording())engine.recorder().interruptForRecovery();deviceController.notifyDisconnected();shell.live().setMutedVisual(true);
         shell.live().setStatusText("● POCKET MASTER DISCONNECTED",false); shell.setTopStatus("PMX 0.2 α  •  DISCONNECTED",false);
     }
 
-    if(shell.live().tunerVisible() && engine.sampleRate()>0.0)
+    if(connected && engine.sampleRate()>0.0)
     {
         const int count=engine.tunerTap().pop(tunerWindow.data(),static_cast<int>(tunerWindow.size()));
-        if(count>=256) shell.live().setTunerResult(tunerEngine.analyse(tunerWindow.data(),count,engine.sampleRate()));
+        if(shell.live().tunerVisible()&&count>=256) shell.live().setTunerResult(tunerEngine.analyse(tunerWindow.data(),count,engine.sampleRate()));
     }
+    if(assetLoad.valid()&&assetLoad.wait_for(std::chrono::milliseconds(0))==std::future_status::ready){
+        try {
+            auto loaded=assetLoad.get();
+            if(!loaded.error.empty())showInfo("Sound could not be loaded",juce::String(loaded.error)+"\nYour current sound is unchanged.",juce::MessageBoxIconType::WarningIcon);
+            else if(currentSelection&&(loaded.rate!=currentSelection->sampleRate||loaded.block!=currentSelection->bufferSize))showInfo("Audio setup changed","Import the sound again using the new audio settings.");
+            else {
+                audioHost.suspend();
+                const bool wasNam=static_cast<bool>(loaded.nam);
+                if(loaded.nam){engine.nam()=std::move(*loaded.nam);currentNamPath=loaded.path;sound.nam={loaded.path.stem().string(),loaded.path};sound.effects[3].enabled=true;applyEffect(3,sound.effects[3]);shell.live().setNamName(loaded.path.stem().string());}
+                if(loaded.ir){engine.ir().swapPrepared(*loaded.ir);currentIrPath=loaded.path;sound.ir={loaded.path.stem().string(),loaded.path};sound.effects[4].enabled=true;applyEffect(4,sound.effects[4]);shell.live().setIrName(loaded.path.stem().string());}
+                shell.live().setSoundState(sound);
+                if(connected&&!audioHost.resume()){connected=false;monitoring=false;engine.setMuted(true);}
+                if(wasNam&&!sound.ir.path.empty()&&std::filesystem::exists(sound.ir.path))loadIr(sound.ir.path);
+            }
+        }catch(const std::exception& e){showInfo("Sound import failed",juce::String(e.what()),juce::MessageBoxIconType::WarningIcon);}
+    }
+    const auto levels=engine.metrics();shell.live().setMeters(connected?levels.inputPeak:0,connected?levels.outputPeak:0);
+    shell.live().setTempo(engine.tempo().bpm());shell.live().setRecordingVisual(engine.recorder().isRecording());
+    if(!connected)shell.live().setTunerResult({});
     updateLooperUi();
     if(++diagnosticsCountdown>=20){diagnosticsCountdown=0;updateDiagnostics();}
     if(loopWrite.valid() && loopWrite.wait_for(std::chrono::milliseconds(0))==std::future_status::ready)

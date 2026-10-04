@@ -3,6 +3,8 @@
 #include <cmath>
 #include <fstream>
 #include <vector>
+#include <atomic>
+#include "dsp/effects/Parameter.h"
 #if defined(PMX_HAS_NAM_CORE)
 #include "NAM/get_dsp.h"
 #endif
@@ -14,7 +16,7 @@ struct NamProcessor::Impl
     std::unique_ptr<::nam::DSP> model;
     std::vector<float> scratch;
 #endif
-    float inputGain{1.0f},outputGain{1.0f}; bool isLoaded{false};
+    std::atomic<float> inputGain{1.0f},outputGain{1.0f}; bool isLoaded{false};
 };
 NamProcessor::NamProcessor():impl(std::make_unique<Impl>()){} NamProcessor::~NamProcessor()=default; NamProcessor::NamProcessor(NamProcessor&&) noexcept=default; NamProcessor& NamProcessor::operator=(NamProcessor&&) noexcept=default;
 bool NamProcessor::engineCompiled() noexcept {
@@ -39,10 +41,10 @@ void NamProcessor::unload() noexcept {
 impl->model.reset();impl->scratch.clear();
 #endif
 impl->isLoaded=false;}
-void NamProcessor::setInputTrimDb(float db) noexcept{impl->inputGain=std::pow(10.0f,db/20.0f);}void NamProcessor::setOutputTrimDb(float db) noexcept{impl->outputGain=std::pow(10.0f,db/20.0f);}bool NamProcessor::loaded()const noexcept{return impl->isLoaded;}
+void NamProcessor::setInputTrimDb(float db) noexcept{impl->inputGain=std::pow(10.0f,dsp::safeParameter(db,-24,24,0)/20.0f);}void NamProcessor::setOutputTrimDb(float db) noexcept{impl->outputGain=std::pow(10.0f,dsp::safeParameter(db,-24,6,0)/20.0f);}bool NamProcessor::loaded()const noexcept{return impl->isLoaded;}
 void NamProcessor::process(float*b,int n) noexcept{if(!b||n<=0||!impl->isLoaded)return;
 #if defined(PMX_HAS_NAM_CORE)
-if(!impl->model||static_cast<size_t>(n)>impl->scratch.size())return;for(int i=0;i<n;++i)b[i]*=impl->inputGain;NAM_SAMPLE* in[]{b};NAM_SAMPLE* out[]{impl->scratch.data()};impl->model->process(in,out,n);for(int i=0;i<n;++i)b[i]=impl->scratch[static_cast<size_t>(i)]*impl->outputGain;
+if(!impl->model||static_cast<size_t>(n)>impl->scratch.size())return;for(int i=0;i<n;++i)b[i]*=impl->inputGain.load();NAM_SAMPLE* in[]{b};NAM_SAMPLE* out[]{impl->scratch.data()};impl->model->process(in,out,n);for(int i=0;i<n;++i)b[i]=impl->scratch[static_cast<size_t>(i)]*impl->outputGain.load();
 #endif
 }
 }

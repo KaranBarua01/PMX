@@ -16,6 +16,9 @@ public:
     void setTiming(std::size_t currentFrames, std::size_t totalFrames, double sampleRate);
     void setTransportState(const juce::String& stateText);
     void setLoopLevelPercent(float percent);
+    void setWaveform(const std::array<float,128>& values, float fraction) { peaks=values;progress=fraction;repaint(); }
+    void setAvailability(bool connected,bool hasLoop,bool stopped,bool canUndo,bool canRedo);
+    std::function<void(float)> onLoopLevel;
 
     std::function<void()> onRecord;
     std::function<void()> onPlay;
@@ -43,5 +46,7 @@ private:
     PmxButton undo { "UNDO" };
     PmxButton redo { "REDO" };
     PmxButton clear { "CLEAR", ButtonKind::danger };
+    std::array<float,128> peaks{};
+    float progress{};
 };
 } // namespace pmx::ui

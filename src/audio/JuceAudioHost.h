@@ -15,6 +15,9 @@ public:
     [[nodiscard]] std::vector<AudioDeviceInfo> scan();
     [[nodiscard]] juce::String open(const AudioDeviceSelection& selection);
     void close();
+    void suspend();
+    bool resume();
+    bool isRunning() const noexcept { return deviceAlive.load(); }
     void setSink(AudioSink* newSink) noexcept { sink.store(newSink, std::memory_order_release); }
     [[nodiscard]] juce::AudioDeviceManager& deviceManager() noexcept { return manager; }
 
@@ -24,9 +27,13 @@ private:
                                           int numSamples, const juce::AudioIODeviceCallbackContext&) override;
     void audioDeviceAboutToStart(juce::AudioIODevice*) override;
     void audioDeviceStopped() override;
+    void audioDeviceError(const juce::String&) override { deviceAlive.store(false); }
 
     juce::AudioDeviceManager manager;
     std::atomic<AudioSink*> sink { nullptr };
     bool callbackAttached { false };
+    std::atomic<bool> maintenance{false},deviceAlive{false};
+    double preparedRate{};
+    int preparedBlock{};
 };
 } // namespace pmx::audio

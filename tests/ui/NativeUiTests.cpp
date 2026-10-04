@@ -13,7 +13,7 @@ bool checkBounds(juce::Component& component)
         auto& child=*component.getChildComponent(i);
         if(!child.isVisible()) continue;
         // Composite slider internals include deliberately inset label borders.
-        if(dynamic_cast<juce::Slider*>(&component)!=nullptr || dynamic_cast<juce::ComboBox*>(&component)!=nullptr || dynamic_cast<juce::TextEditor*>(&component)!=nullptr) continue;
+        if(dynamic_cast<juce::Slider*>(&component)!=nullptr || dynamic_cast<juce::ComboBox*>(&component)!=nullptr || dynamic_cast<juce::TextEditor*>(&component)!=nullptr || dynamic_cast<juce::Viewport*>(&component)!=nullptr) continue;
         if(child.getWidth()<=0 || child.getHeight()<=0 || !component.getLocalBounds().contains(child.getBounds()))
         {
             std::cerr<<"Control outside its parent: "<<child.getName()<<" "<<child.getBounds().toString()<<" parent "<<component.getLocalBounds().toString()<<'\n';

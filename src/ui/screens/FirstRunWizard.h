@@ -32,5 +32,7 @@ private:
     juce::Label hint;
     PmxButton primary { "CONTINUE", ButtonKind::primary };
     PmxButton secondary { "", ButtonKind::secondary };
+    PmxButton offline { "EXPLORE OFFLINE" };
+    juce::Rectangle<int> card;
 };
 } // namespace pmx::ui

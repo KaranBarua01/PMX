@@ -9,5 +9,6 @@ class PmxButton final : public juce::TextButton
 {
 public:
     PmxButton(juce::String text, ButtonKind kind = ButtonKind::secondary);
+    void paintButton(juce::Graphics&, bool, bool) override;
 };
 } // namespace pmx::ui

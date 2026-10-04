@@ -13,6 +13,7 @@
 #include "audio/ProcessingEngine.h"
 #include "looper/LoopExportService.h"
 #include "presets/PresetStore.h"
+#include "presets/SoundState.h"
 #include "ui/AppShell.h"
 
 namespace pmx::app
@@ -26,6 +27,10 @@ public:
 private:
     void timerCallback() override;
     void wireUi();
+    void applyEffect(std::size_t,const presets::EffectSettings&);
+    void refreshPresets();
+    void loopCommand(audio::LoopCommand);
+    looper::LoopSnapshot snapshotLoop();
     void discoverAndOpen();
     bool applySelection(const audio::AudioDeviceSelection&, bool enableMonitoring);
     void enableMonitoring();
@@ -57,6 +62,10 @@ private:
     std::optional<audio::AudioDeviceSelection> currentSelection;
     std::unique_ptr<juce::FileChooser> chooser;
     std::future<looper::LoopExportResult> loopWrite;
+    struct PreparedAsset {std::unique_ptr<nam::NamProcessor> nam;std::unique_ptr<ir::IrProcessor> ir;std::filesystem::path path;std::string error;double rate{};int block{};};
+    std::future<PreparedAsset> assetLoad;
+    presets::SoundState sound;
+    std::vector<presets::Preset> presetLibrary;
     std::vector<float> tunerWindow;
     std::filesystem::path currentNamPath;
     std::filesystem::path currentIrPath;

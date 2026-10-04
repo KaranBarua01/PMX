@@ -67,16 +67,35 @@ juce::String JuceAudioHost::open(const AudioDeviceSelection& selection)
 
 void JuceAudioHost::close()
 {
+    maintenance.store(false);
     if (callbackAttached)
     {
         manager.removeAudioCallback(this);
         callbackAttached = false;
     }
     manager.closeAudioDevice();
+    deviceAlive.store(false);
+}
+
+void JuceAudioHost::suspend()
+{
+    maintenance.store(true);
+    if(callbackAttached){manager.removeAudioCallback(this);callbackAttached=false;}
+}
+
+bool JuceAudioHost::resume()
+{
+    auto* device=manager.getCurrentAudioDevice();
+    if(!device || !device->isOpen() || device->getCurrentSampleRate()!=preparedRate || device->getCurrentBufferSizeSamples()!=preparedBlock)
+    { maintenance.store(false);deviceAlive.store(false);return false; }
+    manager.addAudioCallback(this);callbackAttached=true;maintenance.store(false);return true;
 }
 
 void JuceAudioHost::audioDeviceAboutToStart(juce::AudioIODevice* device)
 {
+    deviceAlive.store(true);
+    if(maintenance.load())return;
+    preparedRate=device->getCurrentSampleRate();preparedBlock=device->getCurrentBufferSizeSamples();
     if (auto* s = sink.load(std::memory_order_acquire))
         s->prepare(device->getCurrentSampleRate(), device->getCurrentBufferSizeSamples(),
                    device->getActiveInputChannels().countNumberOfSetBits(),
@@ -85,6 +104,8 @@ void JuceAudioHost::audioDeviceAboutToStart(juce::AudioIODevice* device)
 
 void JuceAudioHost::audioDeviceStopped()
 {
+    if(maintenance.load())return;
+    deviceAlive.store(false);
     if (auto* s = sink.load(std::memory_order_acquire)) s->stopped();
 }
 
@@ -93,7 +114,7 @@ void JuceAudioHost::audioDeviceIOCallbackWithContext(const float* const* inputs,
                                                       int numSamples,
                                                       const juce::AudioIODeviceCallbackContext&)
 {
-    if (auto* s = sink.load(std::memory_order_acquire))
+    if (auto* s = sink.load(std::memory_order_acquire);s && deviceAlive.load())
         s->process(inputs, numInputs, outputs, numOutputs, numSamples);
     else
         for (int c = 0; c < numOutputs; ++c)

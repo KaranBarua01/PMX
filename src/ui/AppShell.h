@@ -45,6 +45,7 @@ private:
     std::array<std::unique_ptr<PmxButton>, 4> nav;
     PmxButton update { "UPDATE" };
     juce::Label status;
+    juce::Label footer;
     LiveScreen liveScreen;
     PresetsScreen presetsScreen;
     LooperScreen looperScreen;
