@@ -1,5 +1,7 @@
 #define MyAppName "PMX"
-#define MyAppVersion "0.2.0-alpha.2"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.2.0-alpha.2"
+#endif
 #define MyAppExeName "PMX.exe"
 
 [Setup]
