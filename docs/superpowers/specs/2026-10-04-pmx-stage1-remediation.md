@@ -1,0 +1,21 @@
+# PMX Stage 1: verified foundation and supplied UI
+
+The owner's October 4 request and `docs/ui/pmx-reference.png` are authoritative. Earlier documents describe intent, not evidence. Retain C++20/JUCE/CMake and the existing source. Work on `codex/pmx-stage1`, based on `cc1eb3f`; do not merge main during implementation.
+
+## Visual specification
+
+The supplied collage has three centered first-run cards, Live, Delay editor, NAM/IR browser, Looper, Presets, Settings, Update, compact Live, and a design-language sheet. Use the dark compact Live/design sheet direction for the native app; the collage's light Live panel establishes layout hierarchy. Graphite background, charcoal cards, fine borders, blue primary/selected actions, green healthy state, red recording/error/destructive state. Segoe UI, large sound title, small uppercase eyebrow labels. Header contains brand, Live/Looper/Presets/Settings, version and Update; setup hides ordinary navigation. Footer contains fixed chain description and actual engine configuration.
+
+Live: top row mode/status/meters/Bypass; large sound card with Choose a Sound/Save Preset; horizontal nine-effect cards with subtitle and real enabled state; paired current NAM/IR cards with Change; Open Looper prompt. Tuner, full Mute, tempo/metronome and Quick Recorder must remain accessible, with honest offline/empty states. Effect editor follows Delay's three rotary controls and restrained centered modal; use the same structure for other effects. NAM/IR browser uses two searchable local lists and Import actions, no bundled commercial assets or fake model selections. Looper uses a real waveform, four large transport tiles, Undo/Redo/Clear, Save/Export, loop level. Presets uses category rail, search, responsive four-column cards and actual stored sounds. Settings exposes only supported ASIO options and driver latency, never invented connection/CPU/latency claims. Update reports real release state and requires intentional installation.
+
+Target 1920x1080 and 1366x768; minimum 1100x680. Preserve legible type and click targets; modal scrim blocks underlying edits. Design changes are authorized by the owner's instruction to proceed after receiving the image; do not ask for routine technical approvals.
+
+## Runtime contract
+
+Audio starts muted, explicit monitoring only. FX Bypass and full Mute differ. Select Pocket Master ASIO explicitly; never fall back to laptop devices. Device loss mutes and stops transport/recording safely, reconnect stays muted. Callback performs bounded prepared processing only, with no allocations, blocking, files, network, UI, or model/IR loading. Sanitize nonfinite input and output; contain overload. UI parameters use atomics or bounded state transfer. Looper controls enter a bounded command queue; callback owns transport and buffers, publishes status. Large overdub merging and clearing must not stall the callback. Recorder stop waits for any in-flight producer outside the callback before finalizing the WAV.
+
+Worker prepares NAM/IR replacements, validates bounded local files, retains current sound on errors; installation is safe and does not reset loop/recorder state. Presets version and round-trip every musical module/parameter/reference; exclude device/mute safety state. Missing assets produce readable warnings. Gate/compressor use envelopes, gains are smoothed. Fixed chain remains Gate/Comp/Drive/NAM/IR/EQ/Mod/Delay/Reverb, with loop playback joining afterward. Tempo is shared by UI/metronome/tap. Tuner must suppress silence/unreliable notes. One 120-second stereo loop, one-level overdub undo/redo, stopped 24-bit WAV export; separate long-take ring/worker recorder.
+
+## Delivery and evidence
+
+Remove obsolete transfer workflow, keep normal project files. Core tests run locally and in Windows CI; GUI build and Inno installer run in Windows CI. Add render/layout verification of real JUCE components at both target sizes. Release download includes executable, installer, SHA-256 manifest, notices and hardware checklist. Preserve all user data during upgrades/uninstall. Review pinned dependency licenses before distributing. Stage 2 instrument engines remain explicit future work; Studio is not implemented. Stage 1 remains hardware-unverified until the owner installs and reports physical Pocket Master tests.

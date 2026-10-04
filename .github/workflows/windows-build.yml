@@ -2,7 +2,7 @@ name: Windows alpha build
 
 on:
   push:
-    branches: [main, "feat/**"]
+    branches: [main, "feat/**", "codex/**"]
   pull_request:
   workflow_dispatch:
 
