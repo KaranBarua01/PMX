@@ -1,0 +1,26 @@
+PMX — Pocket Master eXtended
+Copyright (C) 2026 KaranBarua01 and PMX contributors.
+PMX is licensed under GNU Affero General Public License version 3.
+This application is provided without warranty. See LICENSE for the full terms.
+
+Source: https://github.com/KaranBarua01/PMX
+Exact source revision and dependency pins accompany each distributed build.
+The installer preserves your presets, imported-file references, loops and recordings.
+
+JUCE 9.0.3 — Raw Material Software Limited.
+PMX uses JUCE's AGPLv3 option. See licenses/JUCE.spdx.json and upstream notices.
+
+ASIO SDK — Steinberg Media Technologies GmbH.
+PMX uses the SDK's GPLv3 option. ASIO is a trademark of Steinberg.
+PMX is an independent project, not endorsed by Steinberg or Sonicake.
+
+NeuralAmpModelerCore — Copyright (c) 2023 Steven Atkinson — MIT licence.
+AudioDSPTools — Copyright (c) 2023 Steven Atkinson — MIT licence.
+Eigen — MPL 2.0 and applicable permissive file licences. No upstream files modified.
+JSON for Modern C++ — Copyright (c) 2013–2025 Niels Lohmann — MIT licence.
+
+Upstream licence texts are installed under licenses and supplied in the source bundle.
+JUCE's SPDX inventory lists its bundled components; PMX only builds the required modules.
+No commercial NAM models, cabinet IRs, instrument samples or TONE3000 content are bundled.
+User-imported sound files remain local and retain their owners' respective licences.
+

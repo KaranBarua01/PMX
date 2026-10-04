@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(PMX_VERSION_STRING "0.2.0-alpha.1" CACHE STRING "PMX semantic version")
+set(PMX_VERSION_STRING "0.2.0-alpha.2" CACHE STRING "PMX semantic version")
 option(PMX_BUILD_TESTS "Build dependency-free PMX tests" ON)
 if(WIN32)
     option(PMX_BUILD_GUI "Build the native JUCE PMX application" ON)

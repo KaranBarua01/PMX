@@ -3,6 +3,7 @@ name: Windows alpha build
 on:
   push:
     branches: [main, "feat/**", "codex/**"]
+    tags: ["v*.*.*"]
   pull_request:
   workflow_dispatch:
 
@@ -34,9 +35,25 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
+      - name: Bundle corresponding source and build identity
+        shell: pwsh
+        run: ./scripts/bundle-source.ps1
+
       - name: Build installer
         shell: pwsh
         run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\PMX.iss'
+
+      - name: Test install, native startup and data preservation
+        shell: pwsh
+        run: ./scripts/test-installer.ps1
+
+      - name: Write download checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem dist/PMX-*.exe,dist/PMX-source.zip | ForEach-Object {
+            $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          } | Set-Content dist/SHA256SUMS.txt -Encoding ascii
 
       - name: Upload unsigned alpha
         uses: actions/upload-artifact@v4
@@ -44,7 +61,14 @@ jobs:
           name: PMX-windows-alpha-unsigned
           path: |
             build/PMX_artefacts/Release/PMX.exe
-            dist/PMX-0.2.0-alpha.1-x64.exe
+            dist/PMX-0.2.0-alpha.2-x64.exe
+            dist/PMX-source.zip
+            dist/BUILD-INFO.txt
+            dist/SHA256SUMS.txt
+            LICENSE
+            NOTICE.txt
+            SOURCE.md
+            build/distribution/licenses/**
             docs/testing/first-pocket-master-test.md
           if-no-files-found: error
 
@@ -55,3 +79,33 @@ jobs:
           name: PMX-native-ui-renders
           path: build/ui-renders/*.png
           if-no-files-found: ignore
+
+  publish-preview:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: PMX-windows-alpha-unsigned
+          path: package
+      - uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          name: PMX ${{ github.ref_name }} — Pocket Master test alpha
+          body: |
+            Native Windows x64 test alpha. This build is unsigned.
+            Download the x64 installer. PMX-source.zip contains the matching source and dependencies under AGPLv3.
+            BUILD-INFO.txt identifies the commit; SHA256SUMS.txt contains download checksums.
+            Automated checks cover core logic, native rendering, model/IR processing, installer startup and user-data preservation.
+            Pocket Master routing, sound quality, latency and disconnect behaviour still require the hardware checklist.
+            Guitar only at this stage. Bass, Synth, guitar-triggered Drums, Piano and Violin follow hardware acceptance.
+          files: |
+            package/dist/PMX-*-x64.exe
+            package/dist/PMX-source.zip
+            package/dist/BUILD-INFO.txt
+            package/dist/SHA256SUMS.txt
+            package/build/PMX_artefacts/Release/PMX.exe
+            package/docs/testing/first-pocket-master-test.md

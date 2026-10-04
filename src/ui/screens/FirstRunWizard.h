@@ -15,6 +15,7 @@ public:
 
     void setDetectedStatus(bool inputOk, bool outputOk, bool asioOk);
     void setAudioTestPassed(bool passed);
+    void reset(){setup=state::SetupState{};refresh();}
     std::function<void()> onDiscoverDevice;
     std::function<void()> onTestAudio;
     std::function<void()> onFinished;

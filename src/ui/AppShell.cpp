@@ -6,7 +6,7 @@ namespace pmx::ui
 AppShell::AppShell()
 {
     setWantsKeyboardFocus(true);
-    brand.setText("◆ PMX", juce::dontSendNotification);
+    brand.setText("PMX", juce::dontSendNotification);
     brand.setColour(juce::Label::textColourId, juce::Colour(Theme::text));
     brand.setFont(juce::FontOptions(17.0f, juce::Font::bold));
     addAndMakeVisible(brand);
@@ -136,12 +136,14 @@ void AppShell::paint(juce::Graphics& g)
     g.fillRect(getLocalBounds().withHeight(Theme::topBarHeight));
     g.setColour(juce::Colour(Theme::border));
     g.drawHorizontalLine(Theme::topBarHeight - 1, 0.0f, static_cast<float>(getWidth()));
+    g.setColour(juce::Colour(Theme::accent));const int heights[]{5,10,18,12,6};
+    for(int i=0;i<5;++i)g.fillRoundedRectangle(static_cast<float>(14+i*4),static_cast<float>(Theme::topBarHeight/2-heights[i]/2),2.0f,static_cast<float>(heights[i]),1.0f);
 }
 
 void AppShell::resized()
 {
     auto top = getLocalBounds().withHeight(Theme::topBarHeight).reduced(12, 8);
-    brand.setBounds(top.removeFromLeft(130));
+    auto brandArea=top.removeFromLeft(118);brandArea.removeFromLeft(28);brand.setBounds(brandArea);
     for (auto& button : nav)
     {
         button->setBounds(top.removeFromLeft(82).reduced(4, 0));
@@ -153,10 +155,7 @@ void AppShell::resized()
     presetsScreen.setBounds(contentBounds());
     looperScreen.setBounds(contentBounds());
     settingsScreen.setBounds(contentBounds());
-    const auto layout = LayoutPolicy::compute(getWidth(), getHeight());
-    const int dialogW = layout.dialogWidth;
-    const int dialogH = layout.dialogHeight;
-    updateDialog.setBounds((getWidth()-dialogW)/2, (getHeight()-dialogH)/2, dialogW, dialogH);
+    updateDialog.setBounds(getLocalBounds());
     performanceMode.setBounds(contentBounds());
     setupWizard.setBounds(getLocalBounds().withTrimmedTop(Theme::topBarHeight).withTrimmedBottom(24));
 }

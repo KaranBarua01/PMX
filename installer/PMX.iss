@@ -1,5 +1,5 @@
 #define MyAppName "PMX"
-#define MyAppVersion "0.2.0-alpha.1"
+#define MyAppVersion "0.2.0-alpha.2"
 #define MyAppExeName "PMX.exe"
 
 [Setup]
@@ -19,12 +19,19 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\{#MyAppExeName}
+LicenseFile=..\LICENSE
+InfoAfterFile=..\NOTICE.txt
+AppPublisherURL=https://github.com/KaranBarua01/PMX
 
 [Files]
 Source: "..\build\PMX_artefacts\Release\PMX.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\build\distribution\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\BUILD-INFO.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\SOURCE.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\PMX"; Filename: "{app}\{#MyAppExeName}"
+Name: "{autoprograms}\PMX Source"; Filename: "https://github.com/KaranBarua01/PMX"
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch PMX"; Flags: nowait postinstall skipifsilent

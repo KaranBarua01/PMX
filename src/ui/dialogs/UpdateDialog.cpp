@@ -37,7 +37,9 @@ void UpdateDialog::beginCheck()
 void UpdateDialog::startDownload()
 {
     if(downloading||decision.status!=pmx::update::UpdateStatus::available)return;
-    const auto base=juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("PMX").getChildFile("updates");
+    const auto local=juce::SystemStats::getEnvironmentVariable("LOCALAPPDATA",{});
+    const auto root=local.isNotEmpty()?juce::File(local):juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
+    const auto base=root.getChildFile("PMX").getChildFile("updates");
     const auto destination=base.getChildFile(juce::String(decision.release.assetName)).getFullPathName().toStdString();
     downloading=true; action.setButtonText("DOWNLOADING…"); action.setEnabled(false); status.setText("Downloading and verifying the installer…",juce::dontSendNotification);
     downloadFuture=pmx::update::JuceReleaseClient::downloadInstallerAsync(decision.release,std::filesystem::path(destination));
@@ -82,13 +84,15 @@ void UpdateDialog::updatePresentation()
 
 void UpdateDialog::paint(juce::Graphics& g)
 {
-    g.setColour(juce::Colour(Theme::panel)); g.fillRoundedRectangle(getLocalBounds().toFloat(),Theme::cornerRadius);
-    g.setColour(juce::Colour(Theme::border)); g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(0.5f),Theme::cornerRadius,1.0f);
+    g.fillAll(juce::Colours::black.withAlpha(0.65f));
+    const auto card=getLocalBounds().withSizeKeepingCentre(560,560).toFloat();
+    g.setColour(juce::Colour(Theme::panel)); g.fillRoundedRectangle(card,Theme::cornerRadius);
+    g.setColour(juce::Colour(Theme::border)); g.drawRoundedRectangle(card.reduced(0.5f),Theme::cornerRadius,1.0f);
 }
 
 void UpdateDialog::resized()
 {
-    auto r=getLocalBounds().reduced(24); icon.setBounds(r.removeFromTop(42).withWidth(42)); eyebrow.setBounds(r.removeFromTop(20)); title.setBounds(r.removeFromTop(38)); subtitle.setBounds(r.removeFromTop(44));
+    auto r=getLocalBounds().withSizeKeepingCentre(560,560).reduced(24); icon.setBounds(r.removeFromTop(42).withWidth(42)); eyebrow.setBounds(r.removeFromTop(20)); title.setBounds(r.removeFromTop(38)); subtitle.setBounds(r.removeFromTop(44));
     auto versions=r.removeFromTop(30); installedLabel.setBounds(versions.removeFromLeft(220)); availableLabel.setBounds(versions); r.removeFromTop(10); notes.setBounds(r.removeFromTop(150)); r.removeFromTop(10); status.setBounds(r.removeFromTop(38));
     auto buttons=r.removeFromBottom(42); action.setBounds(buttons.removeFromRight(170)); buttons.removeFromRight(10); dismiss.setBounds(buttons.removeFromRight(110));
 }

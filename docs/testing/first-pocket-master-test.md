@@ -1,4 +1,4 @@
-# PMX 0.2.0-alpha.1 — First Pocket Master Hardware Test
+# PMX 0.2.0-alpha.2 — First Pocket Master Hardware Test
 
 This is a **hardware-test alpha**, not a production release. The test establishes whether the Windows/JUCE audio foundation works correctly with the Sonicake Pocket Master used only as a USB/ASIO interface.
 

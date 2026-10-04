@@ -5,6 +5,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "components/PmxButton.h"
 #include "LayoutPolicy.h"
+#include "pmx/AppVersion.h"
 #include "screens/LiveScreen.h"
 #include "screens/PresetsScreen.h"
 #include "screens/LooperScreen.h"
@@ -51,7 +52,7 @@ private:
     PresetsScreen presetsScreen;
     LooperScreen looperScreen;
     SettingsScreen settingsScreen;
-    UpdateDialog updateDialog { "0.2.0-alpha.1" };
+    UpdateDialog updateDialog { std::string(pmx::AppVersion::current()) };
     PerformanceMode performanceMode;
     FirstRunWizard setupWizard;
     bool performanceActive { false };

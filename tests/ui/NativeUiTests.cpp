@@ -11,22 +11,6 @@ namespace
 bool checkBounds(juce::Component& component)
 {
     bool ok=true;
-    // Exercise the actually linked native engines, including static model registration.
-    const auto modelFile=directory.getChildFile("linear-test.nam");
-    modelFile.replaceWithText(R"({"version":"0.6.0","architecture":"Linear","config":{"receptive_field":1,"bias":false},"weights":[0.5],"sample_rate":48000})");
-    pmx::nam::NamProcessor nam;
-    const auto loaded=nam.load(std::filesystem::path(modelFile.getFullPathName().toStdString()),48000,128);
-    if(!loaded.ok){std::cerr<<"Native NAM load failed: "<<loaded.error<<'\n';ok=false;}
-    float samples[128]{};samples[0]=.5f;nam.process(samples,128);
-    if(loaded.ok&&std::abs(samples[0]-.25f)>.002f){std::cerr<<"Native NAM did not process its generated linear fixture\n";ok=false;}
-    const auto invalidFile=directory.getChildFile("invalid-test.nam");invalidFile.replaceWithText("invalid");
-    if(nam.load(std::filesystem::path(invalidFile.getFullPathName().toStdString()),48000,128).ok){std::cerr<<"Invalid NAM was accepted\n";ok=false;}
-    std::fill_n(samples,128,0.0f);samples[0]=.5f;nam.process(samples,128);
-    if(loaded.ok&&std::abs(samples[0]-.25f)>.002f){std::cerr<<"Invalid NAM destroyed the working model\n";ok=false;}
-    auto impulse=std::make_shared<pmx::ir::IrData>();impulse->sampleRate=48000;impulse->taps={1.0f,.5f};
-    pmx::ir::IrProcessor ir;ir.setPrepared(impulse,128);std::fill_n(samples,128,0.0f);samples[0]=.5f;ir.process(samples,128);
-    if(std::abs(samples[0]-.5f)>.002f||std::abs(samples[1]-.25f)>.002f){std::cerr<<"Prepared native convolution output is incorrect\n";ok=false;}
-    modelFile.deleteFile();invalidFile.deleteFile();
     for(int i=0;i<component.getNumChildComponents();++i)
     {
         auto& child=*component.getChildComponent(i);
@@ -47,6 +31,7 @@ juce::Button* buttonNamed(juce::Component& parent,const juce::String& name)
     for(int i=0;i<parent.getNumChildComponents();++i)
     {
         auto* child=parent.getChildComponent(i);
+        if(!child->isVisible())continue;
         if(auto* button=dynamic_cast<juce::Button*>(child);button && button->getButtonText()==name) return button;
         if(auto* nested=buttonNamed(*child,name)) return nested;
     }
@@ -67,6 +52,22 @@ int main(int argc,char** argv)
     const juce::File directory=argc>1?juce::File(juce::String(argv[1])):juce::File::getCurrentWorkingDirectory().getChildFile("ui-renders");
     directory.createDirectory();
     bool ok=true;
+    // Exercise the actually linked native engines, including static model registration.
+    const auto modelFile=directory.getChildFile("linear-test.nam");
+    modelFile.replaceWithText(R"({"version":"0.6.0","architecture":"Linear","config":{"receptive_field":1,"bias":false},"weights":[0.5],"sample_rate":48000})");
+    pmx::nam::NamProcessor nam;
+    const auto loaded=nam.load(std::filesystem::path(modelFile.getFullPathName().toStdString()),48000,128);
+    if(!loaded.ok){std::cerr<<"Native NAM load failed: "<<loaded.error<<'\n';ok=false;}
+    float samples[128]{};samples[0]=.5f;nam.process(samples,128);
+    if(loaded.ok&&std::abs(samples[0]-.25f)>.002f){std::cerr<<"Native NAM did not process its generated linear fixture\n";ok=false;}
+    const auto invalidFile=directory.getChildFile("invalid-test.nam");invalidFile.replaceWithText("invalid");
+    if(nam.load(std::filesystem::path(invalidFile.getFullPathName().toStdString()),48000,128).ok){std::cerr<<"Invalid NAM was accepted\n";ok=false;}
+    std::fill_n(samples,128,0.0f);samples[0]=.5f;nam.process(samples,128);
+    if(loaded.ok&&std::abs(samples[0]-.25f)>.002f){std::cerr<<"Invalid NAM destroyed the working model\n";ok=false;}
+    auto impulse=std::make_shared<pmx::ir::IrData>();impulse->sampleRate=48000;impulse->taps={1.0f,.5f};
+    pmx::ir::IrProcessor ir;ir.setPrepared(impulse,128);std::fill_n(samples,128,0.0f);samples[0]=.5f;ir.process(samples,128);
+    if(std::abs(samples[0]-.5f)>.002f||std::abs(samples[1]-.25f)>.002f){std::cerr<<"Prepared native convolution output is incorrect\n";ok=false;}
+    modelFile.deleteFile();invalidFile.deleteFile();
     pmx::ui::AppShell shell;
     int shortcutCalls=0;
     shell.onShortcut=[&](auto){++shortcutCalls;};
@@ -76,10 +77,16 @@ int main(int argc,char** argv)
     for(const auto size: {std::pair{1920,1080},std::pair{1366,768},std::pair{1100,680}})
     {
         shell.setSize(size.first,size.second);
+        shell.setup().reset();
         shell.showSetup(true);
         const auto prefix=juce::String(size.first)+"x"+juce::String(size.second)+"-";
         render(shell,directory.getChildFile(prefix+"welcome.png"));
         ok=checkBounds(shell)&&ok;
+        shell.setup().setDetectedStatus(true,true,true);
+        render(shell,directory.getChildFile(prefix+"device-found.png"));
+        shell.setup().setAudioTestPassed(true);
+        if(auto* next=buttonNamed(shell.setup(),"CONTINUE");next&&next->onClick)next->onClick();
+        render(shell,directory.getChildFile(prefix+"ready.png"));
         shell.showSetup(false);
         const std::pair<pmx::ui::AppShell::Page,const char*> pages[]{
             {pmx::ui::AppShell::Page::live,"live"},{pmx::ui::AppShell::Page::looper,"looper"},
@@ -96,6 +103,18 @@ int main(int argc,char** argv)
         render(shell,directory.getChildFile(prefix+"gate.png"));
         ok=checkBounds(shell)&&ok;
         if(auto* done=buttonNamed(shell.live(),"DONE");done && done->onClick) done->onClick();
+        if(auto* delay=buttonNamed(shell.live(),"DELAY");delay&&delay->onClick)delay->onClick();
+        render(shell,directory.getChildFile(prefix+"delay.png"));ok=checkBounds(shell)&&ok;
+        if(auto* done=buttonNamed(shell.live(),"DONE");done&&done->onClick)done->onClick();
+        if(auto* amp=buttonNamed(shell.live(),"IMPORT AN AMP");amp&&amp->onClick)amp->onClick();
+        render(shell,directory.getChildFile(prefix+"amp-cabinet.png"));ok=checkBounds(shell)&&ok;
+        if(auto* done=buttonNamed(shell.live(),"DONE");done&&done->onClick)done->onClick();
+        if(auto* perform=buttonNamed(shell.live(),"PERFORM");perform&&perform->onClick)perform->onClick();
+        render(shell,directory.getChildFile(prefix+"performance.png"));ok=checkBounds(shell)&&ok;
+        if(auto* exit=buttonNamed(shell,"EXIT PERFORMANCE");exit&&exit->onClick)exit->onClick();
+        shell.updater().setVisible(true);
+        render(shell,directory.getChildFile(prefix+"update.png"));ok=checkBounds(shell)&&ok;
+        shell.updater().setVisible(false);
     }
     return ok?0:1;
 }

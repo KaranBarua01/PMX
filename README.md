@@ -6,7 +6,7 @@ PMX is a Windows 11 live guitar workstation built around one simple rule: **the 
 Guitar -> Pocket Master -> USB/ASIO -> PMX -> USB/ASIO -> Pocket Master -> headphones/speaker
 ```
 
-## 0.2.0-alpha.1 scope
+## 0.2.0-alpha.2 scope
 
 The first hardware-test alpha includes:
 

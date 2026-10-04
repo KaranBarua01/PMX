@@ -33,8 +33,9 @@ if(PMX_ENABLE_NAM_CORE)
         "${namcore_SOURCE_DIR}/Dependencies/nlohmann"
         "${namcore_SOURCE_DIR}/Dependencies/AudioDSPTools/dsp"
     )
-    target_compile_definitions(pmx_nam_core PUBLIC NAM_SAMPLE_FLOAT NAM_ENABLE_A2_FAST)
+    target_compile_definitions(pmx_nam_core PUBLIC NAM_SAMPLE_FLOAT NAM_ENABLE_A2_FAST EIGEN_MPL2_ONLY)
     if(WIN32)
         target_compile_definitions(pmx_nam_core PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
     endif()
 endif()
+include("${CMAKE_CURRENT_LIST_DIR}/DistributionNotices.cmake")

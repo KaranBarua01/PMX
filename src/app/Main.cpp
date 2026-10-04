@@ -12,7 +12,7 @@ public:
     {
         return juce::String(pmx::AppVersion::current().data());
     }
-    bool moreThanOneInstanceAllowed() override { return true; }
+    bool moreThanOneInstanceAllowed() override { return false; }
     void initialise(const juce::String&) override { window = std::make_unique<pmx::ui::MainWindow>(); }
     void shutdown() override { window.reset(); }
     void systemRequestedQuit() override { quit(); }
