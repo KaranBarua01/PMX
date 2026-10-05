@@ -27,6 +27,7 @@ PmxRuntime::PmxRuntime(ui::AppShell& ui)
     audioHost.setSink(&engine);
     engine.setMuted(true);
     guitarProfile=instruments::GuitarProfile::loadOrStandard(appDataDirectory()/"guitar-profile.txt");
+    engine.setGuitarProfile(guitarProfile);
     wireUi();
     applyPreset(presets::factoryPresets()[4]);
     refreshPresets();
@@ -478,6 +479,7 @@ void PmxRuntime::timerCallback()
                 if(guitarCalibration.completed())
                 {
                     guitarProfile=guitarCalibration.profile();
+                    engine.setGuitarProfile(guitarProfile);
                     const auto saved=guitarProfile.save(appDataDirectory()/"guitar-profile.txt");
                     shell.special().setGuitarCalibrationProgress(false,-1,true);
                     showInfo(saved?"Guitar learned":"Guitar learned for this session",
