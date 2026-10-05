@@ -19,7 +19,7 @@ public:
 
 private:
     static constexpr int readingsNeeded = 4;
-    static constexpr float minimumConfidence = 0.45f;
+    static constexpr float minimumConfidence = 0.12f;
     static constexpr double stableCents = 18.0;
 
     GuitarProfile learnedProfile;
