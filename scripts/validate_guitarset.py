@@ -180,6 +180,8 @@ def score_track(wav,jams,probe):
         "recall":recall,
         "f1":f1,
         "exact_frame_rate":exact/used if used else 0.0,
+        "single_or_silent_frames":single_frames,
+        "false_polyphonic_frames":false_poly,
         "false_polyphonic_rate_when_gt_le_1":false_poly/single_frames if single_frames else 0.0,
         "mean_predicted_notes":predicted_total/used if used else 0.0,
     }
@@ -194,6 +196,8 @@ def aggregate(rows):
     recall=tp/(tp+fn) if tp+fn else 0.0
     f1=2*precision*recall/(precision+recall) if precision+recall else 0.0
     exact=sum(r["exact_frame_rate"]*r["frames"] for r in rows)
+    single_frames=sum(r["single_or_silent_frames"] for r in rows)
+    false_poly=sum(r["false_polyphonic_frames"] for r in rows)
     return {
         "tracks":len(rows),
         "frames":frames,
@@ -201,6 +205,7 @@ def aggregate(rows):
         "recall":recall,
         "f1":f1,
         "weighted_exact_frame_rate":exact/frames if frames else 0.0,
+        "false_polyphonic_rate_when_gt_le_1":false_poly/single_frames if single_frames else 0.0,
     }
 
 
@@ -227,7 +232,8 @@ def main():
         rows.append(row)
         print(f"{row['kind']:4} {row['style']:5} {wav.name:32} "
               f"P={row['precision']:.3f} R={row['recall']:.3f} F1={row['f1']:.3f} "
-              f"exact={row['exact_frame_rate']:.3f}")
+              f"exact={row['exact_frame_rate']:.3f} "
+              f"falsePoly={row['false_polyphonic_rate_when_gt_le_1']:.3f}")
 
     comp=[r for r in rows if r["kind"]=="comp"]
     solo=[r for r in rows if r["kind"]=="solo"]
