@@ -49,6 +49,7 @@ target_sources(pmx_processing_engine_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/src/analysis/TunerTap.cpp"
     "${PROJECT_SOURCE_DIR}/src/analysis/MusicalAnalysisEngine.cpp"
     "${PROJECT_SOURCE_DIR}/src/analysis/FretboardNoteSolver.cpp"
+    "${PROJECT_SOURCE_DIR}/src/analysis/PolyphonicNoteDetector.cpp"
     "${PROJECT_SOURCE_DIR}/src/instruments/GuitarProfile.cpp")
 target_compile_features(pmx_processing_engine_tests PRIVATE cxx_std_20)
 add_test(NAME pmx.processing_engine COMMAND pmx_processing_engine_tests)
@@ -206,3 +207,11 @@ add_executable(pmx_fretboard_note_solver_tests analysis/FretboardNoteSolverTests
 target_include_directories(pmx_fretboard_note_solver_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(pmx_fretboard_note_solver_tests PRIVATE cxx_std_20)
 add_test(NAME pmx.fretboard_note_solver COMMAND pmx_fretboard_note_solver_tests)
+
+
+add_executable(pmx_polyphonic_note_detector_tests analysis/PolyphonicNoteDetectorTests.cpp
+    "${PROJECT_SOURCE_DIR}/src/analysis/PolyphonicNoteDetector.cpp"
+    "${PROJECT_SOURCE_DIR}/src/instruments/GuitarProfile.cpp")
+target_include_directories(pmx_polyphonic_note_detector_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(pmx_polyphonic_note_detector_tests PRIVATE cxx_std_20)
+add_test(NAME pmx.polyphonic_note_detector COMMAND pmx_polyphonic_note_detector_tests)
