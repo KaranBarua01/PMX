@@ -16,13 +16,14 @@ public:
  void editEffect(std::size_t i){openEditor(i);}
  void setStatusText(const std::string&,bool);void setPresetName(const std::string&);void setNamName(const std::string&);void setIrName(const std::string&);
  void setSoundState(const presets::SoundState&);void setMeters(float,float);void setTempo(double);void setStringDrumDetected(int);
+ void setGuitarCalibrationProgress(bool active,int stringIndex,bool completed);
  void setTunerResult(const analysis::TunerResult& r){tunerView.setResult(r);}
  bool hasModalEditorOpen() const noexcept{return effectEditor.isVisible()||namIrBrowser.isVisible();}
  bool tunerVisible() const noexcept{return tunerView.isVisible();}
  float delayTimeMs() const noexcept{return sound.effects[7].values[0];}
  float delayFeedbackPercent() const noexcept{return sound.effects[7].values[1];}
  float delayMixPercent() const noexcept{return sound.effects[7].values[2];}
- std::function<void()> onChooseSound,onPerformanceMode,onSavePreset,onTapTempo,onImportNam,onImportIr,onQuickRecord,onOpenLooper;
+ std::function<void()> onChooseSound,onPerformanceMode,onSavePreset,onTapTempo,onImportNam,onImportIr,onQuickRecord,onOpenLooper,onCalibrateGuitar;
  std::function<void(bool)> onBypassChanged,onMuteChanged,onMetronomeChanged,onRhythmChanged,onStringDrumsChanged;
  std::function<void(float)> onMetronomeLevel,onRhythmLevel,onStringDrumsLevel;
  std::function<void(int)> onRhythmPattern;
@@ -31,11 +32,10 @@ public:
  std::function<void(float,float,float)> onDelayChanged;
 private:
  void openEditor(std::size_t);void openLibrary();
- presets::SoundState sound;float inputPeak{},outputPeak{};int rhythmPatternIndex{1};
+ presets::SoundState sound;float inputPeak{},outputPeak{};int rhythmPatternIndex{1};bool guitarCalibrationActive{};
  juce::Rectangle<int> soundCard;juce::Label eyebrow,title,subtitle,status,mode,tempoLabel,clickLevelLabel,rhythmLevelLabel,stringDrumLevelLabel,stringDrumStatus;
- PmxButton tuner{"TUNER"},chooseSound{"CHOOSE A SOUND"},perform{"PERFORM"},save{"SAVE PRESET",ButtonKind::primary},bypass{"BYPASS"},mute{"UNMUTE"},record{"QUICK RECORD"},click{"CLICK OFF"},tap{"TAP TEMPO"},openLooper{"OPEN LOOPER"},rhythm{"DRUMS OFF"},rhythmPattern{"ROCK"},stringDrums{"STRING DRUMS OFF"};
+ PmxButton tuner{"TUNER"},chooseSound{"CHOOSE A SOUND"},perform{"PERFORM"},save{"SAVE PRESET",ButtonKind::primary},bypass{"BYPASS"},mute{"UNMUTE"},record{"QUICK RECORD"},click{"CLICK OFF"},tap{"TAP TEMPO"},openLooper{"OPEN LOOPER"},rhythm{"DRUMS OFF"},rhythmPattern{"ROCK"},stringDrums{"STRING DRUMS OFF"},calibrateGuitar{"LEARN GUITAR"};
  juce::Slider bpm,clickLevel,rhythmLevel,stringDrumLevel;TunerView tunerView;
  std::array<PmxButton,9> modules{PmxButton{"GATE"},PmxButton{"COMP"},PmxButton{"DRIVE"},PmxButton{"NAM"},PmxButton{"IR"},PmxButton{"EQ"},PmxButton{"MOD"},PmxButton{"DELAY"},PmxButton{"REVERB"}};
  PmxButton namCard{"IMPORT AN AMP"},irCard{"IMPORT A CABINET"};EffectEditor effectEditor;NamIrBrowser namIrBrowser;
 };}
-
