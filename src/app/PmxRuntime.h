@@ -11,6 +11,8 @@
 #include "audio/AudioDiagnosticService.h"
 #include "audio/JuceAudioHost.h"
 #include "audio/ProcessingEngine.h"
+#include "instruments/GuitarCalibration.h"
+#include "instruments/GuitarProfile.h"
 #include "looper/LoopExportService.h"
 #include "presets/PresetStore.h"
 #include "presets/SoundState.h"
@@ -59,6 +61,8 @@ private:
     audio::AudioDeviceController deviceController;
     audio::ProcessingEngine engine;
     analysis::TunerEngine tunerEngine;
+    instruments::GuitarProfile guitarProfile;
+    instruments::GuitarCalibration guitarCalibration;
     presets::PresetStore presetStore;
     std::optional<audio::AudioDeviceSelection> currentSelection;
     std::unique_ptr<juce::FileChooser> chooser;
