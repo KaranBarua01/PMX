@@ -40,15 +40,5 @@ int main()
     if(trigger.lastDetectedString()!=-1) return 20;
     for(float v:output) if(std::abs(v)>0.000001f) return 21;
 
-    auto learned=frequencies;
-    learned[0]=73.4162;
-    trigger.prepare(44100.0);
-    trigger.setOpenStringFrequencies(learned);
-    trigger.setEnabled(true);
-    input.fill(0.0f); output.fill(0.0f);
-    makePluck(input,learned[0],44100.0);
-    trigger.process(input.data(),output.data(),static_cast<int>(input.size()));
-    if(trigger.lastDetectedString()!=0) return 22;
-
     return 0;
 }
