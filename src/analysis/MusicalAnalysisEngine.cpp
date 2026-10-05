@@ -73,7 +73,7 @@ void MusicalAnalysisEngine::process(const float* samples, int numSamples) noexce
         const bool crossedThreshold = previousMagnitude <= adaptiveThreshold && magnitude > adaptiveThreshold;
         const bool strongRise = magnitude > adaptiveThreshold && magnitude > previousMagnitude * 1.12f;
 
-        if (samplesSinceOnset >= onsetCooldown && (crossedThreshold || strongRise))
+        if (!localNoteActive && samplesSinceOnset >= onsetCooldown && (crossedThreshold || strongRise))
         {
             localNoteActive = true;
             quietSamples = 0;
