@@ -6,13 +6,13 @@
 namespace
 {
 template <std::size_t N>
-void makePluck(std::array<float,N>& buffer,double frequency,double sampleRate)
+void makePluck(std::array<float,N>& buffer,double frequency,double sampleRate,double amplitude=0.38)
 {
     for(std::size_t i=0;i<N;++i)
     {
         const auto t=static_cast<double>(i)/sampleRate;
         const auto envelope=std::exp(-t*6.0);
-        buffer[i]=static_cast<float>(0.38*envelope*(std::sin(2.0*3.141592653589793*frequency*t)+0.22*std::sin(4.0*3.141592653589793*frequency*t)));
+        buffer[i]=static_cast<float>(amplitude*envelope*(std::sin(2.0*3.141592653589793*frequency*t)+0.22*std::sin(4.0*3.141592653589793*frequency*t)));
     }
 }
 }
@@ -32,6 +32,13 @@ int main()
         if(trigger.lastDetectedString()!=static_cast<int>(index)) return static_cast<int>(1+index);
         if(*std::max_element(output.begin(),output.end())<=0.001f) return 10+static_cast<int>(index);
     }
+
+    trigger.prepare(44100.0);
+    trigger.setEnabled(true);
+    input.fill(0.0f); output.fill(0.0f);
+    makePluck(input,frequencies[0],44100.0,0.012);
+    trigger.process(input.data(),output.data(),static_cast<int>(input.size()));
+    if(trigger.lastDetectedString()!=0) return 22;
 
     trigger.prepare(44100.0);
     trigger.setEnabled(false);
