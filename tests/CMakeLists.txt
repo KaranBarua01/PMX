@@ -180,3 +180,11 @@ add_executable(pmx_guitar_drum_trigger_tests dsp/GuitarDrumTriggerTests.cpp
 target_include_directories(pmx_guitar_drum_trigger_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(pmx_guitar_drum_trigger_tests PRIVATE cxx_std_20)
 add_test(NAME pmx.guitar_drum_trigger COMMAND pmx_guitar_drum_trigger_tests)
+
+
+add_executable(pmx_guitar_profile_tests instruments/GuitarProfileTests.cpp
+    "${PROJECT_SOURCE_DIR}/src/instruments/GuitarProfile.cpp"
+    "${PROJECT_SOURCE_DIR}/src/instruments/GuitarCalibration.cpp")
+target_include_directories(pmx_guitar_profile_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(pmx_guitar_profile_tests PRIVATE cxx_std_20)
+add_test(NAME pmx.guitar_profile COMMAND pmx_guitar_profile_tests)
