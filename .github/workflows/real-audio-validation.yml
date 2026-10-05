@@ -2,6 +2,14 @@ name: Real guitar validation
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - codex/pmx-stage1
+    paths:
+      - "src/analysis/PolyphonicNoteDetector.*"
+      - "tools/PolyphonicProbe.cpp"
+      - "scripts/validate_guitarset.py"
+      - ".github/workflows/real-audio-validation.yml"
 
 permissions:
   contents: read
