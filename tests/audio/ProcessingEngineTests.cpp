@@ -224,5 +224,9 @@ int main()
     if(!musical.noteActive)return 35;
     if(musical.frequencyHz<107.0||musical.frequencyHz>113.0)return 36;
     if(musical.midiNote!=45)return 37;
+    const auto resolved=engine.resolvedNote();
+    if(!resolved.noteActive)return 38;
+    if(resolved.midiNote!=45)return 39;
+    if(std::abs(resolved.targetFrequencyHz-110.0)>0.2)return 40;
     return 0;
 }
