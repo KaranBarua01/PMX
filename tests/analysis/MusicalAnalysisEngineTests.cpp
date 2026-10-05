@@ -1,5 +1,6 @@
 #include <array>
 #include <cmath>
+#include <limits>
 #include "analysis/MusicalAnalysisEngine.h"
 
 namespace
