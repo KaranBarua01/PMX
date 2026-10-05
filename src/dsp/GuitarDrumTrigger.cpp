@@ -6,7 +6,12 @@ namespace pmx::dsp
 namespace
 {
 constexpr double pi = 3.14159265358979323846;
-constexpr std::array<double, 6> openStringHz { 82.4069, 110.0, 146.832, 195.998, 246.942, 329.628 };
+constexpr std::array<double, 6> standardOpenStringHz { 82.4069, 110.0, 146.832, 195.998, 246.942, 329.628 };
+}
+
+GuitarDrumTrigger::GuitarDrumTrigger() noexcept
+{
+    setOpenStringFrequencies(standardOpenStringHz);
 }
 
 void GuitarDrumTrigger::prepare(double newSampleRate) noexcept
@@ -28,6 +33,16 @@ void GuitarDrumTrigger::setEnabled(bool value) noexcept
 {
     enabled.store(value, std::memory_order_release);
     lastDetected.store(-1, std::memory_order_relaxed);
+}
+
+void GuitarDrumTrigger::setOpenStringFrequencies(const std::array<double, 6>& frequencies) noexcept
+{
+    for (const auto frequency : frequencies)
+        if (!std::isfinite(frequency) || frequency < 40.0 || frequency > 1400.0)
+            return;
+
+    for (std::size_t i = 0; i < frequencies.size(); ++i)
+        openStringHz[i].store(frequencies[i], std::memory_order_release);
 }
 
 float GuitarDrumTrigger::noise() noexcept
@@ -58,12 +73,15 @@ float GuitarDrumTrigger::correlationAtLag(int lag) const noexcept
 
 GuitarDrumPad GuitarDrumTrigger::classifyCapturedPitch() const noexcept
 {
-    std::array<float, openStringHz.size()> scores {};
+    std::array<float, 6> scores {};
     float globalBest = -2.0f;
 
     for (int stringIndex = 0; stringIndex < static_cast<int>(openStringHz.size()); ++stringIndex)
     {
-        const auto targetLag = sampleRate / openStringHz[static_cast<std::size_t>(stringIndex)];
+        const auto frequency = openStringHz[static_cast<std::size_t>(stringIndex)].load(std::memory_order_acquire);
+        if (!std::isfinite(frequency) || frequency <= 0.0) continue;
+
+        const auto targetLag = sampleRate / frequency;
         const int spread = std::max(2, static_cast<int>(std::lround(targetLag * 0.025)));
         float stringBest = -2.0f;
         for (int lag = static_cast<int>(std::lround(targetLag)) - spread;
