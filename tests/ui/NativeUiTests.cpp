@@ -90,12 +90,25 @@ int main(int argc,char** argv)
         shell.showSetup(false);
         const std::pair<pmx::ui::AppShell::Page,const char*> pages[]{
             {pmx::ui::AppShell::Page::live,"live"},{pmx::ui::AppShell::Page::looper,"looper"},
-            {pmx::ui::AppShell::Page::presets,"presets"},{pmx::ui::AppShell::Page::settings,"settings"}};
+            {pmx::ui::AppShell::Page::presets,"presets"},{pmx::ui::AppShell::Page::special,"special"},
+            {pmx::ui::AppShell::Page::settings,"settings"}};
         for(const auto& [page,name]:pages)
         {
             shell.goTo(page);
             render(shell,directory.getChildFile(prefix+name+".png"));
             ok=checkBounds(shell)&&ok;
+        }
+        shell.goTo(pmx::ui::AppShell::Page::live);
+        if(buttonNamed(shell.live(),"STRING DRUMS OFF")||buttonNamed(shell.live(),"LEARN GUITAR")||buttonNamed(shell.live(),"BEATS OFF"))
+        {
+            std::cerr<<"Special tools must not appear on the Live page\n";
+            ok=false;
+        }
+        shell.goTo(pmx::ui::AppShell::Page::special);
+        if(!buttonNamed(shell.special(),"STRING DRUMS OFF")||!buttonNamed(shell.special(),"LEARN GUITAR")||!buttonNamed(shell.special(),"BEATS OFF"))
+        {
+            std::cerr<<"Special page is missing experimental controls\n";
+            ok=false;
         }
         shell.goTo(pmx::ui::AppShell::Page::live);
         if(auto* gate=buttonNamed(shell.live(),"GATE");gate && gate->onClick) gate->onClick();
