@@ -46,7 +46,8 @@ target_sources(pmx_processing_engine_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/src/dsp/Metronome.cpp"
     "${PROJECT_SOURCE_DIR}/src/dsp/RhythmDrumMachine.cpp"
     "${PROJECT_SOURCE_DIR}/src/dsp/GuitarDrumTrigger.cpp"
-    "${PROJECT_SOURCE_DIR}/src/analysis/TunerTap.cpp")
+    "${PROJECT_SOURCE_DIR}/src/analysis/TunerTap.cpp"
+    "${PROJECT_SOURCE_DIR}/src/analysis/MusicalAnalysisEngine.cpp")
 target_compile_features(pmx_processing_engine_tests PRIVATE cxx_std_20)
 add_test(NAME pmx.processing_engine COMMAND pmx_processing_engine_tests)
 
@@ -188,3 +189,10 @@ add_executable(pmx_guitar_profile_tests instruments/GuitarProfileTests.cpp
 target_include_directories(pmx_guitar_profile_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(pmx_guitar_profile_tests PRIVATE cxx_std_20)
 add_test(NAME pmx.guitar_profile COMMAND pmx_guitar_profile_tests)
+
+
+add_executable(pmx_musical_analysis_tests analysis/MusicalAnalysisEngineTests.cpp
+    "${PROJECT_SOURCE_DIR}/src/analysis/MusicalAnalysisEngine.cpp")
+target_include_directories(pmx_musical_analysis_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(pmx_musical_analysis_tests PRIVATE cxx_std_20)
+add_test(NAME pmx.musical_analysis COMMAND pmx_musical_analysis_tests)
