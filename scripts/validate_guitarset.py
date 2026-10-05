@@ -168,6 +168,7 @@ def score_track(wav,jams,probe):
         "silence":0,
         "other":0,
     }
+    false_positive_intervals={}
 
     for t,predicted in frames:
         if boundary_near(events,t):
@@ -184,6 +185,10 @@ def score_track(wav,jams,probe):
         fn+=len(truth-predicted)
         for midi in false_positives:
             false_positive_classes[classify_false_positive(midi,truth)]+=1
+            if truth:
+                nearest=min((midi-note for note in truth),key=lambda x:abs(x))
+                key=str(nearest)
+                false_positive_intervals[key]=false_positive_intervals.get(key,0)+1
         if truth==predicted:
             exact+=1
         if len(truth)<=1:
@@ -210,6 +215,7 @@ def score_track(wav,jams,probe):
         "false_polyphonic_rate_when_gt_le_1":false_poly/single_frames if single_frames else 0.0,
         "mean_predicted_notes":predicted_total/used if used else 0.0,
         "false_positive_classes":false_positive_classes,
+        "false_positive_intervals":false_positive_intervals,
     }
 
 
@@ -228,6 +234,13 @@ def aggregate(rows):
         name:sum(r["false_positive_classes"].get(name,0) for r in rows)
         for name in ("adjacent_semitone","upper_harmonic","lower_subharmonic","silence","other")
     }
+    false_positive_intervals={}
+    for row in rows:
+        for interval,count in row["false_positive_intervals"].items():
+            false_positive_intervals[interval]=false_positive_intervals.get(interval,0)+count
+    false_positive_intervals=dict(
+        sorted(false_positive_intervals.items(),key=lambda item:(-item[1],int(item[0])))
+    )
     return {
         "tracks":len(rows),
         "frames":frames,
@@ -237,6 +250,7 @@ def aggregate(rows):
         "weighted_exact_frame_rate":exact/frames if frames else 0.0,
         "false_polyphonic_rate_when_gt_le_1":false_poly/single_frames if single_frames else 0.0,
         "false_positive_classes":false_positive_classes,
+        "false_positive_intervals":false_positive_intervals,
     }
 
 
@@ -282,6 +296,7 @@ def main():
     print("COMP   ",json.dumps(report["comp"],sort_keys=True))
     print("SOLO   ",json.dumps(report["solo"],sort_keys=True))
     print("FPCLASS",json.dumps(report["overall"]["false_positive_classes"],sort_keys=True))
+    print("FPINT  ",json.dumps(report["overall"]["false_positive_intervals"]))
     return 0
 
 
