@@ -27,6 +27,7 @@ void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, i
     rhythmDrums.prepare(newSampleRate);
     stringDrums.prepare(newSampleRate);
     tunerCapture.prepare(32768);
+    musicalAnalyzer.prepare(newSampleRate);
     looperEngine.preparePreserving(newSampleRate, 120.0);
     quickRecorder.prepare(newSampleRate, 2, 2.0);
     loopScratchLeft.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
@@ -43,6 +44,7 @@ void ProcessingEngine::stopped() noexcept
 {
     muted.store(true, std::memory_order_relaxed);
     signalMetrics.reset();
+    musicalAnalyzer.reset();
     looperEngine.stop();
     publishLoopStatus();
 }
@@ -64,8 +66,13 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
     if (hasLiveInput)
     {
         tunerCapture.push(inputs[0], numSamples);
+        musicalAnalyzer.process(inputs[0], numSamples);
         for (int i = 0; i < numSamples; ++i)
             if (std::isfinite(inputs[0][i])) inPeak = std::max(inPeak, std::abs(inputs[0][i]));
+    }
+    else
+    {
+        musicalAnalyzer.process(nullptr, numSamples);
     }
     signalMetrics.updateInput(inPeak);
 
