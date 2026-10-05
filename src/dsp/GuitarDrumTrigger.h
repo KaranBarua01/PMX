@@ -20,11 +20,14 @@ enum class GuitarDrumPad : int
 class GuitarDrumTrigger final
 {
 public:
+    GuitarDrumTrigger() noexcept;
+
     void prepare(double sampleRate) noexcept;
     void process(const float* input, float* monoOut, int numSamples) noexcept;
 
     void setEnabled(bool value) noexcept;
     void setLevel(float value) noexcept { level.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed); }
+    void setOpenStringFrequencies(const std::array<double, 6>& frequencies) noexcept;
     [[nodiscard]] bool isEnabled() const noexcept { return enabled.load(std::memory_order_relaxed); }
     [[nodiscard]] int lastDetectedString() const noexcept { return lastDetected.load(std::memory_order_relaxed); }
 
@@ -49,6 +52,7 @@ private:
     float previousNoise {};
     std::uint32_t randomState { 0x725341u };
 
+    std::array<std::atomic<double>, 6> openStringHz {};
     std::atomic<bool> enabled { false };
     std::atomic<float> level { 0.55f };
     std::atomic<int> lastDetected { -1 };
