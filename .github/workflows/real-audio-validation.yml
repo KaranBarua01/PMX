@@ -1,0 +1,57 @@
+name: Real guitar validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guitarset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build detector probe
+        run: |
+          cmake -S . -B build -DPMX_BUILD_GUI=OFF -DPMX_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release --target pmx_polyphonic_probe -j 2
+
+      - name: Cache GuitarSet archives
+        id: cache-guitarset
+        uses: actions/cache@v4
+        with:
+          path: .cache/guitarset
+          key: guitarset-1.1.0-mono-pickup-annotations
+
+      - name: Download GuitarSet mono pickup and annotations
+        if: steps.cache-guitarset.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .cache/guitarset
+          curl -L --fail --retry 4 --retry-delay 5             "https://zenodo.org/records/3371780/files/audio_mono-pickup_mix.zip?download=1"             -o .cache/guitarset/audio_mono-pickup_mix.zip
+          curl -L --fail --retry 4 --retry-delay 5             "https://zenodo.org/records/3371780/files/annotation.zip?download=1"             -o .cache/guitarset/annotation.zip
+
+      - name: Verify dataset archives
+        run: |
+          echo "aecce79f425a44e2055e46f680e10f6a  .cache/guitarset/audio_mono-pickup_mix.zip" | md5sum -c -
+          echo "b39b78e63d3446f2e54ddb7a54df9b10  .cache/guitarset/annotation.zip" | md5sum -c -
+
+      - name: Extract representative corpus
+        run: |
+          mkdir -p data/audio data/annotation
+          unzip -q .cache/guitarset/audio_mono-pickup_mix.zip -d data/audio
+          unzip -q .cache/guitarset/annotation.zip -d data/annotation
+
+      - name: Score PMX detector against GuitarSet
+        run: |
+          python3 scripts/validate_guitarset.py             --audio-dir data/audio             --annotation-dir data/annotation             --probe build/tests/pmx_polyphonic_probe             --report validation/guitarset-report.json
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guitarset-real-audio-validation
+          path: validation/guitarset-report.json
+          if-no-files-found: warn
