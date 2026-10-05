@@ -37,6 +37,17 @@ PolyphonicNoteDetector::PolyphonicNoteDetector() noexcept
 void PolyphonicNoteDetector::prepare(double sampleRate) noexcept
 {
     sampleRateHz = std::isfinite(sampleRate) && sampleRate > 0.0 ? sampleRate : 44100.0;
+
+    analysisWindowScale=0.0;
+    for(int i=0;i<windowSize;++i)
+    {
+        const auto phase=2.0*pi*static_cast<double>(i)/static_cast<double>(windowSize-1);
+        const auto value=static_cast<float>(0.5-0.5*std::cos(phase));
+        analysisWindow[static_cast<std::size_t>(i)]=value;
+        analysisWindowScale+=value;
+    }
+    if(analysisWindowScale<=0.0)analysisWindowScale=1.0;
+
     reset();
 }
 
@@ -132,7 +143,8 @@ float PolyphonicNoteDetector::spectralAmplitude(double frequency) const noexcept
     const int oldest=(writePosition-historyCount+windowSize)%windowSize;
     for(int i=0;i<historyCount;++i)
     {
-        const auto sample=static_cast<double>(history[static_cast<std::size_t>((oldest+i)%windowSize)]);
+        const auto sample=static_cast<double>(history[static_cast<std::size_t>((oldest+i)%windowSize)])
+                         * static_cast<double>(analysisWindow[static_cast<std::size_t>(i)]);
         real+=sample*oscillatorCos;
         imag-=sample*oscillatorSin;
 
@@ -141,7 +153,7 @@ float PolyphonicNoteDetector::spectralAmplitude(double frequency) const noexcept
         oscillatorCos=nextCos;
     }
 
-    return static_cast<float>(2.0*std::sqrt(real*real+imag*imag)/static_cast<double>(historyCount));
+    return static_cast<float>(2.0*std::sqrt(real*real+imag*imag)/analysisWindowScale);
 }
 
 bool PolyphonicNoteDetector::explainedBySelectedHarmonic(
