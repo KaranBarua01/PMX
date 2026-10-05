@@ -30,6 +30,7 @@ void MusicalAnalysisEngine::reset() noexcept
     previousPitchHz = 0.0;
     localOnsetSerial = 0;
     localReleaseSerial = 0;
+    localPitchSerial = 0;
     samplesSinceOnset = 1000000;
     quietSamples = 0;
     localNoteActive = false;
@@ -44,6 +45,7 @@ void MusicalAnalysisEngine::reset() noexcept
     publishedMotion.store(static_cast<int>(PitchMotion::unknown), std::memory_order_relaxed);
     publishedOnsetSerial.store(0, std::memory_order_relaxed);
     publishedReleaseSerial.store(0, std::memory_order_relaxed);
+    publishedPitchSerial.store(0, std::memory_order_relaxed);
 }
 
 void MusicalAnalysisEngine::process(const float* samples, int numSamples) noexcept
@@ -242,11 +244,13 @@ void MusicalAnalysisEngine::publishPitch(double frequency, float confidence) noe
     const int midi = static_cast<int>(std::lround(midiExact));
 
     previousPitchHz = frequency;
+    ++localPitchSerial;
     publishedFrequency.store(frequency, std::memory_order_relaxed);
     publishedMidi.store(midi, std::memory_order_relaxed);
     publishedConfidence.store(std::clamp(confidence, 0.0f, 1.0f), std::memory_order_relaxed);
     publishedPitchDelta.store(deltaCents, std::memory_order_relaxed);
     publishedMotion.store(static_cast<int>(motion), std::memory_order_relaxed);
+    publishedPitchSerial.store(localPitchSerial, std::memory_order_release);
 }
 
 void MusicalAnalysisEngine::publishSilencePitch() noexcept
@@ -271,6 +275,7 @@ MusicalAnalysisSnapshot MusicalAnalysisEngine::snapshot() const noexcept
     result.motion = static_cast<PitchMotion>(publishedMotion.load(std::memory_order_relaxed));
     result.onsetSerial = publishedOnsetSerial.load(std::memory_order_acquire);
     result.releaseSerial = publishedReleaseSerial.load(std::memory_order_acquire);
+    result.pitchSerial = publishedPitchSerial.load(std::memory_order_acquire);
     return result;
 }
 } // namespace pmx::analysis
