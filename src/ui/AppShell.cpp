@@ -11,7 +11,7 @@ AppShell::AppShell()
     brand.setFont(juce::FontOptions(17.0f, juce::Font::bold));
     addAndMakeVisible(brand);
 
-    const char* names[] { "LIVE", "LOOPER", "PRESETS", "SETTINGS" };
+    const char* names[] { "LIVE", "LOOPER", "PRESETS", "SPECIAL", "SETTINGS" };
     for (std::size_t i = 0; i < nav.size(); ++i)
     {
         nav[i] = std::make_unique<PmxButton>(names[i]);
@@ -20,7 +20,8 @@ AppShell::AppShell()
     nav[0]->onClick = [this] { select(Page::live); };
     nav[1]->onClick = [this] { select(Page::looper); };
     nav[2]->onClick = [this] { select(Page::presets); };
-    nav[3]->onClick = [this] { select(Page::settings); };
+    nav[3]->onClick = [this] { select(Page::special); };
+    nav[4]->onClick = [this] { select(Page::settings); };
 
     status.setText("PMX 0.2 alpha  |  OFFLINE", juce::dontSendNotification);
     status.setJustificationType(juce::Justification::centredRight);
@@ -35,12 +36,14 @@ AppShell::AppShell()
     addAndMakeVisible(presetsScreen);
     addAndMakeVisible(looperScreen);
     addAndMakeVisible(settingsScreen);
+    addAndMakeVisible(specialScreen);
     addAndMakeVisible(updateDialog);
     addAndMakeVisible(performanceMode);
     addAndMakeVisible(setupWizard);
     presetsScreen.setVisible(false);
     looperScreen.setVisible(false);
     settingsScreen.setVisible(false);
+    specialScreen.setVisible(false);
     updateDialog.setVisible(false);
     performanceMode.setVisible(false);
     setupWizard.setVisible(true);
@@ -72,7 +75,7 @@ void AppShell::showSetup(bool show)
     setupWizard.setVisible(show);
     for(auto& button:nav)button->setVisible(!show);
     update.setVisible(!show);
-    if(show){liveScreen.setVisible(false);presetsScreen.setVisible(false);looperScreen.setVisible(false);settingsScreen.setVisible(false);}
+    if(show){liveScreen.setVisible(false);presetsScreen.setVisible(false);looperScreen.setVisible(false);specialScreen.setVisible(false);settingsScreen.setVisible(false);}
     else select(page);
     if (show) setupWizard.toFront(false);
 }
@@ -86,6 +89,7 @@ void AppShell::select(Page next)
     liveScreen.setVisible(page == Page::live);
     presetsScreen.setVisible(page == Page::presets);
     looperScreen.setVisible(page == Page::looper);
+    specialScreen.setVisible(page == Page::special);
     settingsScreen.setVisible(page == Page::settings);
     repaint();
 }
@@ -96,7 +100,7 @@ void AppShell::showPerformance(bool show)
     performanceMode.setVisible(show);
     if (show)
     {
-        liveScreen.setVisible(false); presetsScreen.setVisible(false); looperScreen.setVisible(false); settingsScreen.setVisible(false);
+        liveScreen.setVisible(false); presetsScreen.setVisible(false); looperScreen.setVisible(false); specialScreen.setVisible(false); settingsScreen.setVisible(false);
         performanceMode.toFront(false);
     }
     else
@@ -154,6 +158,7 @@ void AppShell::resized()
     liveScreen.setBounds(contentBounds());
     presetsScreen.setBounds(contentBounds());
     looperScreen.setBounds(contentBounds());
+    specialScreen.setBounds(contentBounds());
     settingsScreen.setBounds(contentBounds());
     updateDialog.setBounds(getLocalBounds());
     performanceMode.setBounds(contentBounds());
