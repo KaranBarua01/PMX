@@ -119,35 +119,30 @@ void SpecialScreen::setGuitarCalibrationProgress(bool active,int stringIndex,boo
 void SpecialScreen::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colour(Theme::background));
-    const auto bounds=getLocalBounds();
-    const int top=116;
-    const int cardTop=top+72;
-    const int cardHeight=112;
-    const int lowerTop=cardTop+cardHeight+34;
-
-    g.setColour(juce::Colour(Theme::panel));
-    g.fillRoundedRectangle(0.0f,static_cast<float>(lowerTop),static_cast<float>(bounds.getWidth()),116.0f,Theme::cornerRadius);
-    g.fillRoundedRectangle(0.0f,static_cast<float>(lowerTop+132),static_cast<float>(bounds.getWidth()),116.0f,Theme::cornerRadius);
-    g.fillRoundedRectangle(0.0f,static_cast<float>(lowerTop+264),static_cast<float>(bounds.getWidth()),116.0f,Theme::cornerRadius);
-    g.setColour(juce::Colour(Theme::border));
-    g.drawRoundedRectangle(0.5f,static_cast<float>(lowerTop)+0.5f,static_cast<float>(bounds.getWidth()-1),115.0f,Theme::cornerRadius,1.0f);
-    g.drawRoundedRectangle(0.5f,static_cast<float>(lowerTop+132)+0.5f,static_cast<float>(bounds.getWidth()-1),115.0f,Theme::cornerRadius,1.0f);
-    g.drawRoundedRectangle(0.5f,static_cast<float>(lowerTop+264)+0.5f,static_cast<float>(bounds.getWidth()-1),115.0f,Theme::cornerRadius,1.0f);
+    for(const auto card : {profileCard,stringDrumCard,beatsCard})
+    {
+        if(card.isEmpty())continue;
+        g.setColour(juce::Colour(Theme::panel));
+        g.fillRoundedRectangle(card.toFloat(),Theme::cornerRadius);
+        g.setColour(juce::Colour(Theme::border));
+        g.drawRoundedRectangle(card.toFloat().reduced(0.5f),Theme::cornerRadius,1.0f);
+    }
 }
 
 void SpecialScreen::resized()
 {
     auto r=getLocalBounds();
-    eyebrow.setBounds(r.removeFromTop(22));
-    title.setBounds(r.removeFromTop(44));
-    subtitle.setBounds(r.removeFromTop(34));
-    r.removeFromTop(10);
 
-    instrumentHeading.setBounds(r.removeFromTop(24));
-    instrumentDetail.setBounds(r.removeFromTop(28));
-    r.removeFromTop(10);
+    eyebrow.setBounds(r.removeFromTop(18));
+    title.setBounds(r.removeFromTop(36));
+    subtitle.setBounds(r.removeFromTop(28));
+    r.removeFromTop(4);
 
-    auto cards=r.removeFromTop(112);
+    instrumentHeading.setBounds(r.removeFromTop(22));
+    instrumentDetail.setBounds(r.removeFromTop(24));
+    r.removeFromTop(6);
+
+    auto cards=r.removeFromTop(96);
     const int gap=10;
     const int width=(cards.getWidth()-gap*4)/5;
     for(std::size_t i=0;i<instruments.size();++i)
@@ -156,35 +151,44 @@ void SpecialScreen::resized()
         if(i+1<instruments.size())cards.removeFromLeft(gap);
     }
 
-    r.removeFromTop(34);
-    auto profile=r.removeFromTop(116).reduced(18,12);
-    auto profileAction=profile.removeFromRight(150);
-    calibrateGuitar.setBounds(profileAction.withHeight(38).withY(profileAction.getY()+25));
-    profileHeading.setBounds(profile.removeFromTop(28));
-    profileDetail.setBounds(profile.removeFromTop(44));
+    r.removeFromTop(14);
+    profileCard=r.removeFromTop(80);
+    {
+        auto box=profileCard.reduced(16,8);
+        auto action=box.removeFromRight(150);
+        calibrateGuitar.setBounds(action.withHeight(36).withY(action.getY()+14));
+        profileHeading.setBounds(box.removeFromTop(26));
+        profileDetail.setBounds(box);
+    }
 
-    r.removeFromTop(16);
-    auto pads=r.removeFromTop(116).reduced(18,12);
-    stringDrumHeading.setBounds(pads.removeFromTop(24));
-    stringDrumDetail.setBounds(pads.removeFromTop(24));
-    auto padControls=pads.removeFromTop(40);
-    stringDrums.setBounds(padControls.removeFromLeft(150));
-    padControls.removeFromLeft(12);
-    stringDrumLevelLabel.setBounds(padControls.removeFromLeft(78));
-    stringDrumLevel.setBounds(padControls.removeFromLeft(150));
-    padControls.removeFromLeft(14);
-    stringDrumStatus.setBounds(padControls);
+    r.removeFromTop(10);
+    stringDrumCard=r.removeFromTop(90);
+    {
+        auto box=stringDrumCard.reduced(16,8);
+        stringDrumHeading.setBounds(box.removeFromTop(22));
+        stringDrumDetail.setBounds(box.removeFromTop(20));
+        auto controls=box.removeFromTop(32);
+        stringDrums.setBounds(controls.removeFromLeft(150));
+        controls.removeFromLeft(10);
+        stringDrumLevelLabel.setBounds(controls.removeFromLeft(76));
+        stringDrumLevel.setBounds(controls.removeFromLeft(140));
+        controls.removeFromLeft(12);
+        stringDrumStatus.setBounds(controls);
+    }
 
-    r.removeFromTop(16);
-    auto beatsBox=r.removeFromTop(116).reduced(18,12);
-    beatsHeading.setBounds(beatsBox.removeFromTop(24));
-    beatsDetail.setBounds(beatsBox.removeFromTop(24));
-    auto beatControls=beatsBox.removeFromTop(40);
-    rhythm.setBounds(beatControls.removeFromLeft(110));
-    beatControls.removeFromLeft(10);
-    rhythmPattern.setBounds(beatControls.removeFromLeft(110));
-    beatControls.removeFromLeft(14);
-    rhythmLevelLabel.setBounds(beatControls.removeFromLeft(86));
-    rhythmLevel.setBounds(beatControls.removeFromLeft(170));
+    r.removeFromTop(10);
+    beatsCard=r.removeFromTop(90);
+    {
+        auto box=beatsCard.reduced(16,8);
+        beatsHeading.setBounds(box.removeFromTop(22));
+        beatsDetail.setBounds(box.removeFromTop(20));
+        auto controls=box.removeFromTop(32);
+        rhythm.setBounds(controls.removeFromLeft(110));
+        controls.removeFromLeft(10);
+        rhythmPattern.setBounds(controls.removeFromLeft(110));
+        controls.removeFromLeft(12);
+        rhythmLevelLabel.setBounds(controls.removeFromLeft(84));
+        rhythmLevel.setBounds(controls.removeFromLeft(160));
+    }
 }
 } // namespace pmx::ui
