@@ -200,5 +200,29 @@ int main()
     if(engine.lastStringDrum()!=0)return 33;
     if(!heardTriggeredKick)return 34;
     engine.setStringDrumsEnabled(false);
+
+    // Musical analysis always sees the raw input before mute, gain and guitar effects.
+    engine.prepare(44100.0,128,1,2);
+    engine.setMuted(true);
+    engine.setFxBypass(false);
+    std::array<float,128> analysisInput{};
+    std::uint64_t analysisSample=0;
+    for(int blockIndex=0;blockIndex<40;++blockIndex)
+    {
+        for(std::size_t i=0;i<analysisInput.size();++i)
+        {
+            const auto t=static_cast<double>(analysisSample+i)/44100.0;
+            analysisInput[i]=static_cast<float>(0.12*std::sin(2.0*3.141592653589793*110.0*t));
+        }
+        analysisSample+=analysisInput.size();
+        const float* analysisInputs[]{analysisInput.data()};
+        float analysisL[128]{},analysisR[128]{};
+        float* analysisOutputs[]{analysisL,analysisR};
+        engine.process(analysisInputs,1,analysisOutputs,2,128);
+    }
+    const auto musical=engine.musicalAnalysis();
+    if(!musical.noteActive)return 35;
+    if(musical.frequencyHz<107.0||musical.frequencyHz>113.0)return 36;
+    if(musical.midiNote!=45)return 37;
     return 0;
 }
