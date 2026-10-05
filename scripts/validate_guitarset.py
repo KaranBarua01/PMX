@@ -68,7 +68,25 @@ def run_probe(probe,wav_path):
     return frames
 
 
+def canonical_track_stem(stem):
+    # GuitarSet mono pickup files are named <track>_mix.wav while the
+    # annotation files use <track>.jams. Keep one canonical identifier.
+    if stem.endswith("_mix"):
+        return stem[:-4]
+    return stem
+
+
+def track_kind(stem):
+    canonical=canonical_track_stem(stem)
+    if canonical.endswith("_comp"):
+        return "comp"
+    if canonical.endswith("_solo"):
+        return "solo"
+    return None
+
+
 def track_style(stem):
+    stem=canonical_track_stem(stem)
     parts=stem.split("_")
     if len(parts)<2:
         return "unknown"
@@ -80,9 +98,9 @@ def track_style(stem):
 def choose_tracks(wavs):
     by_player={}
     for wav in wavs:
-        stem=wav.stem
+        stem=canonical_track_stem(wav.stem)
         player=stem.split("_",1)[0]
-        kind="comp" if stem.endswith("_comp") else ("solo" if stem.endswith("_solo") else None)
+        kind=track_kind(stem)
         if kind is None:
             continue
         by_player.setdefault(player,{"comp":[],"solo":[]})[kind].append(wav)
@@ -154,7 +172,7 @@ def score_track(wav,jams,probe):
 
     return {
         "file":wav.name,
-        "kind":"comp" if wav.stem.endswith("_comp") else "solo",
+        "kind":track_kind(wav.stem) or "unknown",
         "style":track_style(wav.stem),
         "frames":used,
         "tp":tp,"fp":fp,"fn":fn,
@@ -195,14 +213,14 @@ def main():
     args=ap.parse_args()
 
     wavs=sorted(args.audio_dir.rglob("*.wav"))
-    jams_by_stem={p.stem:p for p in args.annotation_dir.rglob("*.jams")}
+    jams_by_stem={canonical_track_stem(p.stem):p for p in args.annotation_dir.rglob("*.jams")}
     selected=choose_tracks(wavs)
     if len(selected)<12:
         raise RuntimeError(f"expected at least 12 representative tracks, got {len(selected)}")
 
     rows=[]
     for wav in selected:
-        jams=jams_by_stem.get(wav.stem)
+        jams=jams_by_stem.get(canonical_track_stem(wav.stem))
         if jams is None:
             raise RuntimeError(f"annotation missing for {wav.name}")
         row=score_track(wav,jams,args.probe)
