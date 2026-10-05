@@ -47,6 +47,8 @@ int main()
     if(a.midiNote!=45) return 6;
     if(a.confidence<=0.05f) return 7;
     if(a.attack<=0.0f) return 8;
+    if(a.pitchSerial==0) return 17;
+    const auto firstPitchSerial=a.pitchSerial;
 
     // A sustained tone must not be mistaken for repeated pick attacks.
     for(int n=0;n<30;++n)
@@ -56,6 +58,7 @@ int main()
         samplePosition+=block.size();
     }
     if(engine.snapshot().onsetSerial!=1) return 9;
+    if(engine.snapshot().pitchSerial<=firstPitchSerial) return 18;
 
     // Moving to a higher pitch must eventually publish positive pitch motion.
     bool sawRising=false;
