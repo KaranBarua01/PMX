@@ -293,9 +293,9 @@ void PolyphonicNoteDetector::analyse() noexcept
     {
         auto& value=evidence[static_cast<std::size_t>(i)];
         if(detected[static_cast<std::size_t>(i)])
-            value=static_cast<unsigned char>(std::min(3,static_cast<int>(value)+1));
-        else if(value>0)
-            --value;
+            value=static_cast<unsigned char>(std::min(evidenceRequired,static_cast<int>(value)+1));
+        else
+            value=0;
     }
 
     std::array<Score,PolyphonicSnapshot::maxNotes> stable{};
@@ -303,10 +303,12 @@ void PolyphonicNoteDetector::analyse() noexcept
 
     for(int i=0;i<count && stableCount<PolyphonicSnapshot::maxNotes;++i)
     {
-        if(evidence[static_cast<std::size_t>(i)]<evidenceRequired)continue;
+        // Require consecutive support including the current analysis frame.
+        // This prevents notes from lingering across fast chord/note changes.
+        if(!detected[static_cast<std::size_t>(i)] ||
+           evidence[static_cast<std::size_t>(i)]<evidenceRequired)continue;
 
         auto score=scores[static_cast<std::size_t>(i)];
-        if(score.amplitude<threshold*0.72f)continue;
 
         if(explainedBySelectedHarmonic(score,stable,stableCount))
             continue;
