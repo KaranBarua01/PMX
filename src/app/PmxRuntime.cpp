@@ -26,6 +26,8 @@ PmxRuntime::PmxRuntime(ui::AppShell& ui)
 {
     audioHost.setSink(&engine);
     engine.setMuted(true);
+    guitarProfile=instruments::GuitarProfile::loadOrStandard(appDataDirectory()/"guitar-profile.txt");
+    engine.setGuitarOpenStringFrequencies(guitarProfile.openStrings());
     wireUi();
     applyPreset(presets::factoryPresets()[4]);
     refreshPresets();
@@ -74,6 +76,19 @@ void PmxRuntime::wireUi()
     shell.live().onRhythmPattern=[this](int pattern){engine.setRhythmPattern(pattern);};
     shell.live().onStringDrumsChanged=[this](bool enabled){engine.setStringDrumsEnabled(enabled);};
     shell.live().onStringDrumsLevel=[this](float level){engine.setStringDrumsLevel(level);};
+    shell.live().onCalibrateGuitar=[this]{
+        if(guitarCalibration.active()){
+            guitarCalibration.cancel();
+            shell.live().setGuitarCalibrationProgress(false,-1,false);
+            return;
+        }
+        if(!connected){
+            showInfo("Connect Pocket Master","Connect the Pocket Master before learning the guitar tuning.",juce::MessageBoxIconType::WarningIcon);
+            return;
+        }
+        guitarCalibration.start(guitarProfile);
+        shell.live().setGuitarCalibrationProgress(true,guitarCalibration.currentString(),false);
+    };
     shell.live().onTempoChanged=[this](double bpm){engine.tempo().setBpm(bpm);};
     shell.live().onQuickRecord=[this]{toggleQuickRecord();};
     shell.looper().onLoopLevel=[this](float level){engine.setLoopLevel(level);};
@@ -447,13 +462,34 @@ void PmxRuntime::timerCallback()
     if(connected && !audioHost.isRunning())
     {
         connected=false; monitoring=false; engine.setMuted(true);audioHost.close();if(engine.recorder().isRecording())engine.recorder().interruptForRecovery();deviceController.notifyDisconnected();shell.live().setMutedVisual(true);
+        if(guitarCalibration.active()){guitarCalibration.cancel();shell.live().setGuitarCalibrationProgress(false,-1,false);}
         shell.live().setStatusText("● POCKET MASTER DISCONNECTED",false); shell.setTopStatus("PMX 0.2 α  •  DISCONNECTED",false);
     }
 
     if(connected && engine.sampleRate()>0.0)
     {
         const int count=engine.tunerTap().pop(tunerWindow.data(),static_cast<int>(tunerWindow.size()));
-        if(shell.live().tunerVisible()&&count>=256) shell.live().setTunerResult(tunerEngine.analyse(tunerWindow.data(),count,engine.sampleRate()));
+        if(count>=256 && (shell.live().tunerVisible() || guitarCalibration.active()))
+        {
+            const auto result=tunerEngine.analyse(tunerWindow.data(),count,engine.sampleRate());
+            if(shell.live().tunerVisible()) shell.live().setTunerResult(result);
+            if(guitarCalibration.active() && guitarCalibration.submit(result))
+            {
+                if(guitarCalibration.completed())
+                {
+                    guitarProfile=guitarCalibration.profile();
+                    engine.setGuitarOpenStringFrequencies(guitarProfile.openStrings());
+                    const auto saved=guitarProfile.save(appDataDirectory()/"guitar-profile.txt");
+                    shell.live().setGuitarCalibrationProgress(false,-1,true);
+                    showInfo(saved?"Guitar learned":"Guitar learned for this session",
+                             saved?"PMX saved your six-string tuning. Future pitch and instrument features can use this fretboard profile."
+                                  :"PMX learned the tuning, but could not save the profile file.",
+                             saved?juce::MessageBoxIconType::InfoIcon:juce::MessageBoxIconType::WarningIcon);
+                }
+                else
+                    shell.live().setGuitarCalibrationProgress(true,guitarCalibration.currentString(),false);
+            }
+        }
     }
     if(assetLoad.valid()&&assetLoad.wait_for(std::chrono::milliseconds(0))==std::future_status::ready){
         try {
