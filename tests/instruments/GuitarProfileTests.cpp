@@ -46,7 +46,7 @@ int main()
         {
             pmx::analysis::TunerResult result;
             result.frequencyHz = target * (1.0 + (reading - 1.5) * 0.0002);
-            result.confidence = 0.92f;
+            result.confidence = stringIndex == 0 ? 0.15f : 0.92f;
             const auto advanced = calibration.submit(result);
             if ((reading == 3) != advanced) return 20 + stringIndex;
         }
