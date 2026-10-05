@@ -181,10 +181,11 @@ void FretboardNoteSolver::process(const MusicalAnalysisSnapshot& input) noexcept
     }
 
     const auto resolvedCents = centsBetween(input.frequencyHz,currentTargetHz);
+    const bool resolvedMoving = std::abs(resolvedCents) >= transitionThresholdCents;
     const float fit = 1.0f - std::min(1.0f,std::abs(resolvedCents)/100.0f);
     publish(true,currentMidi,currentTargetHz,input.frequencyHz,resolvedCents,
             input.confidence * (0.45f + 0.55f * fit),
-            moving,input.onsetSerial,input.releaseSerial);
+            resolvedMoving,input.onsetSerial,input.releaseSerial);
 }
 
 void FretboardNoteSolver::publish(bool active,
