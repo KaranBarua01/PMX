@@ -63,6 +63,8 @@ private:
 
     double sampleRateHz { 44100.0 };
     std::array<float,windowSize> history {};
+    std::array<float,windowSize> analysisWindow {};
+    double analysisWindowScale { 1.0 };
     int writePosition {};
     int historyCount {};
     int samplesSinceAnalysis {};
