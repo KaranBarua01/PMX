@@ -164,7 +164,9 @@ void GuitarDrumTrigger::process(const float* input, float* monoOut, int numSampl
             if (captureCount == 0)
             {
                 const float threshold = std::max(0.004f, slowEnvelope * 2.4f);
-                const bool onset = cooldownSamples == 0 && magnitude > threshold && previousAbs < magnitude * 0.82f;
+                const bool crossedThreshold = previousAbs <= threshold && magnitude > threshold;
+                const bool fastRise = magnitude > threshold && magnitude > previousAbs * 1.08f;
+                const bool onset = cooldownSamples == 0 && (crossedThreshold || fastRise);
                 if (onset)
                     captureCount = 1, capture[0] = value;
             }
