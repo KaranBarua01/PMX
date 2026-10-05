@@ -72,6 +72,7 @@ if(PMX_BUILD_GUI)
         src/ui/dialogs/EffectEditor.cpp
         src/analysis/TunerEngine.cpp
         src/analysis/TunerTap.cpp
+        src/analysis/MusicalAnalysisEngine.cpp
         src/audio/TempoService.cpp
         src/dsp/Metronome.cpp
         src/dsp/RhythmDrumMachine.cpp
