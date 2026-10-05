@@ -10,6 +10,7 @@
 #include "screens/PresetsScreen.h"
 #include "screens/LooperScreen.h"
 #include "screens/SettingsScreen.h"
+#include "screens/SpecialScreen.h"
 #include "screens/FirstRunWizard.h"
 #include "dialogs/UpdateDialog.h"
 #include "screens/PerformanceMode.h"
@@ -20,7 +21,7 @@ namespace pmx::ui
 class AppShell final : public juce::Component
 {
 public:
-    enum class Page { live, looper, presets, settings };
+    enum class Page { live, looper, presets, special, settings };
     AppShell();
     void paint(juce::Graphics&) override;
     void resized() override;
@@ -33,6 +34,7 @@ public:
     LooperScreen& looper() noexcept { return looperScreen; }
     PresetsScreen& presets() noexcept { return presetsScreen; }
     SettingsScreen& settings() noexcept { return settingsScreen; }
+    SpecialScreen& special() noexcept { return specialScreen; }
     FirstRunWizard& setup() noexcept { return setupWizard; }
     PerformanceMode& performance() noexcept {return performanceMode;}
     UpdateDialog& updater() noexcept { return updateDialog; }
@@ -44,7 +46,7 @@ private:
     void select(Page);
     void showPerformance(bool);
     juce::Label brand;
-    std::array<std::unique_ptr<PmxButton>, 4> nav;
+    std::array<std::unique_ptr<PmxButton>, 5> nav;
     PmxButton update { "UPDATE" };
     juce::Label status;
     juce::Label footer;
@@ -52,6 +54,7 @@ private:
     PresetsScreen presetsScreen;
     LooperScreen looperScreen;
     SettingsScreen settingsScreen;
+    SpecialScreen specialScreen;
     UpdateDialog updateDialog { std::string(pmx::AppVersion::current()) };
     PerformanceMode performanceMode;
     FirstRunWizard setupWizard;
