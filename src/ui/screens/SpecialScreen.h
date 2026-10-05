@@ -41,6 +41,7 @@ private:
     juce::Slider stringDrumLevel;
     juce::Slider rhythmLevel;
 
+    juce::Rectangle<int> profileCard, stringDrumCard, beatsCard;
     int rhythmPatternIndex { 1 };
     bool guitarCalibrationActive {};
 };
