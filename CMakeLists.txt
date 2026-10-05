@@ -91,6 +91,7 @@ if(PMX_BUILD_GUI)
         src/recording/QuickRecorder.cpp
         src/audio/AudioDiagnosticService.cpp
         src/ui/screens/SettingsScreen.cpp
+        src/ui/screens/SpecialScreen.cpp
         src/update/ReleaseChecker.cpp
         src/update/JuceReleaseClient.cpp
         src/ui/dialogs/UpdateDialog.cpp
