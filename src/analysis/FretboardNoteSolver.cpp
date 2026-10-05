@@ -149,7 +149,6 @@ void FretboardNoteSolver::process(const MusicalAnalysisSnapshot& input) noexcept
     }
 
     const auto centsFromCurrent = centsBetween(input.frequencyHz,currentTargetHz);
-    const bool moving = std::abs(centsFromCurrent) >= transitionThresholdCents;
 
     if (nearest.midi == currentMidi)
     {
