@@ -6,6 +6,7 @@
 #include "SignalMetrics.h"
 #include "TempoService.h"
 #include "analysis/TunerTap.h"
+#include "analysis/MusicalAnalysisEngine.h"
 #include "dsp/OutputProtector.h"
 #include "dsp/GuitarRack.h"
 #include "dsp/Metronome.h"
@@ -49,6 +50,7 @@ public:
     ir::IrProcessor& ir() noexcept { return irProcessor; }
     TempoService& tempo() noexcept { return tempoService; }
     analysis::TunerTap& tunerTap() noexcept { return tunerCapture; }
+    [[nodiscard]] analysis::MusicalAnalysisSnapshot musicalAnalysis() const noexcept { return musicalAnalyzer.snapshot(); }
     looper::LooperEngine& looper() noexcept { return looperEngine; }
     const looper::LooperEngine& looper() const noexcept { return looperEngine; }
     recording::QuickRecorder& recorder() noexcept { return quickRecorder; }
@@ -97,6 +99,7 @@ private:
     dsp::RhythmDrumMachine rhythmDrums;
     dsp::GuitarDrumTrigger stringDrums;
     analysis::TunerTap tunerCapture;
+    analysis::MusicalAnalysisEngine musicalAnalyzer;
     looper::LooperEngine looperEngine;
     recording::QuickRecorder quickRecorder;
     std::vector<float> loopScratchLeft;
