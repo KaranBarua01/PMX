@@ -62,6 +62,7 @@ public:
     [[nodiscard]] int rhythmPattern() const noexcept { return rhythmDrums.currentPattern(); }
     void setStringDrumsEnabled(bool enabled) noexcept { stringDrums.setEnabled(enabled); }
     void setStringDrumsLevel(float level) noexcept { stringDrums.setLevel(level); }
+    void setGuitarOpenStringFrequencies(const std::array<double, 6>& frequencies) noexcept { stringDrums.setOpenStringFrequencies(frequencies); }
     [[nodiscard]] bool stringDrumsEnabled() const noexcept { return stringDrums.isEnabled(); }
     [[nodiscard]] int lastStringDrum() const noexcept { return stringDrums.lastDetectedString(); }
     void setInputGainDb(float db) noexcept;
