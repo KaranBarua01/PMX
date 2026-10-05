@@ -74,6 +74,7 @@ if(PMX_BUILD_GUI)
         src/analysis/TunerTap.cpp
         src/analysis/MusicalAnalysisEngine.cpp
         src/analysis/FretboardNoteSolver.cpp
+        src/analysis/PolyphonicNoteDetector.cpp
         src/audio/TempoService.cpp
         src/dsp/Metronome.cpp
         src/dsp/RhythmDrumMachine.cpp
