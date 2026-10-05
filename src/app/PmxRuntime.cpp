@@ -70,15 +70,16 @@ void PmxRuntime::wireUi()
     shell.live().onMuteChanged=[this](bool mute){if(mute){monitoring=false;engine.setMuted(true);deviceController.setMonitoringEnabled(false);}else enableMonitoring();shell.live().setMutedVisual(!monitoring);};
     shell.live().onMetronomeChanged=[this](bool enabled){engine.setMetronomeEnabled(enabled);};
     shell.live().onMetronomeLevel=[this](float level){engine.setMetronomeLevel(level);};
-    shell.live().onRhythmChanged=[this](bool enabled){engine.setRhythmEnabled(enabled);};
-    shell.live().onRhythmLevel=[this](float level){engine.setRhythmLevel(level);};
-    shell.live().onRhythmPattern=[this](int pattern){engine.setRhythmPattern(pattern);};
-    shell.live().onStringDrumsChanged=[this](bool enabled){engine.setStringDrumsEnabled(enabled);};
-    shell.live().onStringDrumsLevel=[this](float level){engine.setStringDrumsLevel(level);};
-    shell.live().onCalibrateGuitar=[this]{
+
+    shell.special().onRhythmChanged=[this](bool enabled){engine.setRhythmEnabled(enabled);};
+    shell.special().onRhythmLevel=[this](float level){engine.setRhythmLevel(level);};
+    shell.special().onRhythmPattern=[this](int pattern){engine.setRhythmPattern(pattern);};
+    shell.special().onStringDrumsChanged=[this](bool enabled){engine.setStringDrumsEnabled(enabled);};
+    shell.special().onStringDrumsLevel=[this](float level){engine.setStringDrumsLevel(level);};
+    shell.special().onCalibrateGuitar=[this]{
         if(guitarCalibration.active()){
             guitarCalibration.cancel();
-            shell.live().setGuitarCalibrationProgress(false,-1,false);
+            shell.special().setGuitarCalibrationProgress(false,-1,false);
             return;
         }
         if(!connected){
@@ -86,7 +87,7 @@ void PmxRuntime::wireUi()
             return;
         }
         guitarCalibration.start(guitarProfile);
-        shell.live().setGuitarCalibrationProgress(true,guitarCalibration.currentString(),false);
+        shell.special().setGuitarCalibrationProgress(true,guitarCalibration.currentString(),false);
     };
     shell.live().onTempoChanged=[this](double bpm){engine.tempo().setBpm(bpm);};
     shell.live().onQuickRecord=[this]{toggleQuickRecord();};
@@ -461,7 +462,7 @@ void PmxRuntime::timerCallback()
     if(connected && !audioHost.isRunning())
     {
         connected=false; monitoring=false; engine.setMuted(true);audioHost.close();if(engine.recorder().isRecording())engine.recorder().interruptForRecovery();deviceController.notifyDisconnected();shell.live().setMutedVisual(true);
-        if(guitarCalibration.active()){guitarCalibration.cancel();shell.live().setGuitarCalibrationProgress(false,-1,false);}
+        if(guitarCalibration.active()){guitarCalibration.cancel();shell.special().setGuitarCalibrationProgress(false,-1,false);}
         shell.live().setStatusText("● POCKET MASTER DISCONNECTED",false); shell.setTopStatus("PMX 0.2 α  •  DISCONNECTED",false);
     }
 
@@ -478,14 +479,14 @@ void PmxRuntime::timerCallback()
                 {
                     guitarProfile=guitarCalibration.profile();
                     const auto saved=guitarProfile.save(appDataDirectory()/"guitar-profile.txt");
-                    shell.live().setGuitarCalibrationProgress(false,-1,true);
+                    shell.special().setGuitarCalibrationProgress(false,-1,true);
                     showInfo(saved?"Guitar learned":"Guitar learned for this session",
                              saved?"PMX saved your six-string tuning. Future pitch and instrument features can use this fretboard profile."
                                   :"PMX learned the tuning, but could not save the profile file.",
                              saved?juce::MessageBoxIconType::InfoIcon:juce::MessageBoxIconType::WarningIcon);
                 }
                 else
-                    shell.live().setGuitarCalibrationProgress(true,guitarCalibration.currentString(),false);
+                    shell.special().setGuitarCalibrationProgress(true,guitarCalibration.currentString(),false);
             }
         }
     }
@@ -508,7 +509,7 @@ void PmxRuntime::timerCallback()
             }
         }catch(const std::exception& e){showInfo("Sound import failed",juce::String(e.what()),juce::MessageBoxIconType::WarningIcon);}
     }
-    const auto levels=engine.metrics();shell.live().setMeters(connected?levels.inputPeak:0,connected?levels.outputPeak:0);shell.live().setStringDrumDetected(engine.stringDrumsEnabled()?engine.lastStringDrum():-1);
+    const auto levels=engine.metrics();shell.live().setMeters(connected?levels.inputPeak:0,connected?levels.outputPeak:0);shell.special().setStringDrumDetected(engine.stringDrumsEnabled()?engine.lastStringDrum():-1);
     shell.performance().setState(currentPresetName,connected?"POCKET MASTER CONNECTED":"POCKET MASTER OFFLINE",connected,!monitoring,bypassed,connected?levels.inputPeak:0,connected?levels.outputPeak:0,engine.tempo().bpm());
     shell.performance().setDelay(sound.effects[7].values[0],sound.effects[7].values[1],sound.effects[7].values[2]);
     shell.live().setTempo(engine.tempo().bpm());shell.live().setRecordingVisual(engine.recorder().isRecording());
