@@ -25,6 +25,7 @@ struct MusicalAnalysisSnapshot
     PitchMotion motion { PitchMotion::unknown };
     std::uint64_t onsetSerial {};
     std::uint64_t releaseSerial {};
+    std::uint64_t pitchSerial {};
 };
 
 class MusicalAnalysisEngine final
@@ -59,6 +60,7 @@ private:
     double previousPitchHz {};
     std::uint64_t localOnsetSerial {};
     std::uint64_t localReleaseSerial {};
+    std::uint64_t localPitchSerial {};
     int samplesSinceOnset { 1000000 };
     int quietSamples {};
     bool localNoteActive {};
@@ -73,5 +75,6 @@ private:
     std::atomic<int> publishedMotion { static_cast<int>(PitchMotion::unknown) };
     std::atomic<std::uint64_t> publishedOnsetSerial { 0 };
     std::atomic<std::uint64_t> publishedReleaseSerial { 0 };
+    std::atomic<std::uint64_t> publishedPitchSerial { 0 };
 };
 } // namespace pmx::analysis
