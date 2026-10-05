@@ -137,6 +137,21 @@ def choose_tracks(wavs):
     return selected
 
 
+def classify_false_positive(midi,truth):
+    if not truth:
+        return "silence"
+    intervals=[midi-note for note in truth]
+    nearest=min(intervals,key=lambda x:abs(x))
+    if abs(nearest)==1:
+        return "adjacent_semitone"
+    harmonic_intervals={12,19,24,28,31,34,36}
+    if nearest in harmonic_intervals:
+        return "upper_harmonic"
+    if -nearest in harmonic_intervals:
+        return "lower_subharmonic"
+    return "other"
+
+
 def score_track(wav,jams,probe):
     events=note_events(jams)
     if not events:
@@ -146,6 +161,13 @@ def score_track(wav,jams,probe):
     tp=fp=fn=exact=used=0
     single_frames=false_poly=0
     predicted_total=0
+    false_positive_classes={
+        "adjacent_semitone":0,
+        "upper_harmonic":0,
+        "lower_subharmonic":0,
+        "silence":0,
+        "other":0,
+    }
 
     for t,predicted in frames:
         if boundary_near(events,t):
@@ -157,8 +179,11 @@ def score_track(wav,jams,probe):
         used+=1
         predicted_total+=len(predicted)
         tp+=len(truth & predicted)
-        fp+=len(predicted-truth)
+        false_positives=predicted-truth
+        fp+=len(false_positives)
         fn+=len(truth-predicted)
+        for midi in false_positives:
+            false_positive_classes[classify_false_positive(midi,truth)]+=1
         if truth==predicted:
             exact+=1
         if len(truth)<=1:
@@ -184,6 +209,7 @@ def score_track(wav,jams,probe):
         "false_polyphonic_frames":false_poly,
         "false_polyphonic_rate_when_gt_le_1":false_poly/single_frames if single_frames else 0.0,
         "mean_predicted_notes":predicted_total/used if used else 0.0,
+        "false_positive_classes":false_positive_classes,
     }
 
 
@@ -198,6 +224,10 @@ def aggregate(rows):
     exact=sum(r["exact_frame_rate"]*r["frames"] for r in rows)
     single_frames=sum(r["single_or_silent_frames"] for r in rows)
     false_poly=sum(r["false_polyphonic_frames"] for r in rows)
+    false_positive_classes={
+        name:sum(r["false_positive_classes"].get(name,0) for r in rows)
+        for name in ("adjacent_semitone","upper_harmonic","lower_subharmonic","silence","other")
+    }
     return {
         "tracks":len(rows),
         "frames":frames,
@@ -206,6 +236,7 @@ def aggregate(rows):
         "f1":f1,
         "weighted_exact_frame_rate":exact/frames if frames else 0.0,
         "false_polyphonic_rate_when_gt_le_1":false_poly/single_frames if single_frames else 0.0,
+        "false_positive_classes":false_positive_classes,
     }
 
 
@@ -250,6 +281,7 @@ def main():
     print("\nOVERALL",json.dumps(report["overall"],sort_keys=True))
     print("COMP   ",json.dumps(report["comp"],sort_keys=True))
     print("SOLO   ",json.dumps(report["solo"],sort_keys=True))
+    print("FPCLASS",json.dumps(report["overall"]["false_positive_classes"],sort_keys=True))
     return 0
 
 
