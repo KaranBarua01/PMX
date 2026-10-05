@@ -101,5 +101,25 @@ int main()
     if(d.noteCount!=1)return 9;
     if(!containsMidi(d,38))return 10;
 
+    // A fast note change must not retain the previous stable note after
+    // the new pitch has earned consecutive evidence.
+    detector.setProfile(GuitarProfile::standard());
+    detector.reset();
+    feed(detector,7168,[](int sample)
+    {
+        const double t=static_cast<double>(sample)/sampleRate;
+        return static_cast<float>(0.11*std::sin(2.0*pi*110.0*t)); // A2
+    });
+    if(!containsMidi(detector.snapshot(),45))return 11;
+
+    feed(detector,5120,[](int sample)
+    {
+        const double t=static_cast<double>(sample)/sampleRate;
+        return static_cast<float>(0.11*std::sin(2.0*pi*146.832*t)); // D3
+    });
+    const auto moved=detector.snapshot();
+    if(!containsMidi(moved,50))return 12;
+    if(containsMidi(moved,45))return 13;
+
     return 0;
 }
