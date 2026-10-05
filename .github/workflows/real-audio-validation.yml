@@ -10,6 +10,12 @@ on:
       - "tools/PolyphonicProbe.cpp"
       - "scripts/validate_guitarset.py"
       - ".github/workflows/real-audio-validation.yml"
+  pull_request:
+    paths:
+      - "src/analysis/PolyphonicNoteDetector.*"
+      - "tools/PolyphonicProbe.cpp"
+      - "scripts/validate_guitarset.py"
+      - ".github/workflows/real-audio-validation.yml"
 
 permissions:
   contents: read
