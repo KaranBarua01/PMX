@@ -228,5 +228,8 @@ int main()
     if(!resolved.noteActive)return 38;
     if(resolved.midiNote!=45)return 39;
     if(std::abs(resolved.targetFrequencyHz-110.0)>0.2)return 40;
+    const auto poly=engine.polyphonicNotes();
+    if(poly.noteCount!=1)return 41;
+    if(poly.notes[0].midiNote!=45)return 42;
     return 0;
 }
