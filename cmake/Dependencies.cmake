@@ -17,6 +17,11 @@ if(PMX_ENABLE_NAM_CORE)
         GIT_TAG 0b3d3c97b0859a3a8c92a8628c4dd89a25eb5842
         GIT_SHALLOW FALSE
         GIT_SUBMODULES_RECURSE TRUE
+        # NAMCore pins Eigen as a GitLab submodule. Route that exact URL
+        # through Eigen's GitHub mirror so GitLab load incidents do not
+        # block PMX configuration. The pinned Eigen commit exists there.
+        GIT_CONFIG
+            "url.https://github.com/eigen-mirror/eigen.git.insteadOf=https://gitlab.com/libeigen/eigen"
         SOURCE_SUBDIR cmake/pmx-no-upstream-add-subdirectory
     )
     FetchContent_MakeAvailable(NAMCore)
