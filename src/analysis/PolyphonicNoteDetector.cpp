@@ -172,7 +172,11 @@ bool PolyphonicNoteDetector::explainedBySelectedHarmonic(
             const auto harmonicFrequency=fundamental.frequency*static_cast<double>(harmonic);
             if(std::abs(centsBetween(candidate.frequency,harmonicFrequency))>harmonicToleranceCents)continue;
 
-            const float allowance=harmonic==2?0.72f:(harmonic==3?0.52f:0.42f);
+            // Real GuitarSet pickup recordings frequently have an octave
+            // overtone that is as strong as (or slightly stronger than) the
+            // played fundamental. Be more conservative about promoting those
+            // harmonics to independent notes.
+            const float allowance=harmonic==2?1.10f:(harmonic==3?0.72f:0.58f);
             if(candidate.amplitude<=fundamental.amplitude*allowance)
                 return true;
         }
