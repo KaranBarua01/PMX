@@ -9,6 +9,7 @@
 #include "analysis/MusicalAnalysisEngine.h"
 #include "analysis/FretboardNoteSolver.h"
 #include "analysis/PolyphonicNoteDetector.h"
+#include "performance/PerformanceEventEngine.h"
 #include "dsp/OutputProtector.h"
 #include "dsp/GuitarRack.h"
 #include "dsp/Metronome.h"
@@ -55,6 +56,8 @@ public:
     [[nodiscard]] analysis::MusicalAnalysisSnapshot musicalAnalysis() const noexcept { return musicalAnalyzer.snapshot(); }
     [[nodiscard]] analysis::ResolvedNoteSnapshot resolvedNote() const noexcept { return noteSolver.snapshot(); }
     [[nodiscard]] analysis::PolyphonicSnapshot polyphonicNotes() const noexcept { return polyphonicDetector.snapshot(); }
+    [[nodiscard]] bool popPerformanceEvent(performance::PerformanceEvent& event) noexcept { return performanceEvents.pop(event); }
+    [[nodiscard]] std::uint64_t droppedPerformanceEvents() const noexcept { return performanceEvents.droppedCount(); }
     void setGuitarProfile(const instruments::GuitarProfile& profile) noexcept { noteSolver.setProfile(profile); polyphonicDetector.setProfile(profile); }
     looper::LooperEngine& looper() noexcept { return looperEngine; }
     const looper::LooperEngine& looper() const noexcept { return looperEngine; }
@@ -107,6 +110,7 @@ private:
     analysis::MusicalAnalysisEngine musicalAnalyzer;
     analysis::FretboardNoteSolver noteSolver;
     analysis::PolyphonicNoteDetector polyphonicDetector;
+    performance::PerformanceEventEngine performanceEvents;
     looper::LooperEngine looperEngine;
     recording::QuickRecorder quickRecorder;
     std::vector<float> loopScratchLeft;
