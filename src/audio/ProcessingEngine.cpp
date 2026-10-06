@@ -30,6 +30,7 @@ void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, i
     musicalAnalyzer.prepare(newSampleRate);
     noteSolver.reset();
     polyphonicDetector.prepare(newSampleRate);
+    performanceEvents.reset();
     looperEngine.preparePreserving(newSampleRate, 120.0);
     quickRecorder.prepare(newSampleRate, 2, 2.0);
     loopScratchLeft.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
@@ -49,6 +50,7 @@ void ProcessingEngine::stopped() noexcept
     musicalAnalyzer.reset();
     noteSolver.reset();
     polyphonicDetector.reset();
+    performanceEvents.reset();
     looperEngine.stop();
     publishLoopStatus();
 }
@@ -81,6 +83,7 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
         polyphonicDetector.process(nullptr, numSamples);
     }
     noteSolver.process(musicalAnalyzer.snapshot());
+    performanceEvents.process(noteSolver.snapshot(),polyphonicDetector.snapshot());
     signalMetrics.updateInput(inPeak);
 
     const bool masterMuted = muted.load(std::memory_order_relaxed);
