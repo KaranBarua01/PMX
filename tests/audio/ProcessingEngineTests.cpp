@@ -231,5 +231,29 @@ int main()
     const auto poly=engine.polyphonicNotes();
     if(poly.noteCount!=1)return 41;
     if(poly.notes[0].midiNote!=45)return 42;
+
+    bool sawResolvedNoteOn=false;
+    bool sawPolyphonicNoteOn=false;
+    bool sawChord=false;
+    pmx::performance::PerformanceEvent performanceEvent;
+    while(engine.popPerformanceEvent(performanceEvent))
+    {
+        if(performanceEvent.type==pmx::performance::PerformanceEventType::noteOn &&
+           performanceEvent.source==pmx::performance::PerformanceEventSource::resolved &&
+           performanceEvent.midiNote==45)
+            sawResolvedNoteOn=true;
+        if(performanceEvent.type==pmx::performance::PerformanceEventType::noteOn &&
+           performanceEvent.source==pmx::performance::PerformanceEventSource::polyphonic &&
+           performanceEvent.midiNote==45)
+            sawPolyphonicNoteOn=true;
+        if(performanceEvent.type==pmx::performance::PerformanceEventType::chordChanged &&
+           performanceEvent.noteCount==1 &&
+           performanceEvent.notes[0]==45)
+            sawChord=true;
+    }
+    if(!sawResolvedNoteOn)return 43;
+    if(!sawPolyphonicNoteOn)return 44;
+    if(!sawChord)return 45;
+    if(engine.droppedPerformanceEvents()!=0)return 46;
     return 0;
 }
