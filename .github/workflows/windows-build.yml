@@ -19,8 +19,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Route Eigen dependency through GitHub mirror
+        shell: pwsh
+        run: |
+          git config --global url."https://github.com/eigen-mirror/eigen.git".insteadOf "https://gitlab.com/libeigen/eigen"
+
       - name: Configure
-        run: cmake -S . -B build -A x64 -DPMX_BUILD_GUI=ON -DPMX_BUILD_TESTS=ON -DPMX_ENABLE_NAM_CORE=ON -DPMX_VERSION_STRING="$env:PMX_VERSION"
+        shell: pwsh
+        run: |
+          $attempts = 3
+          for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+            cmake -S . -B build -A x64 -DPMX_BUILD_GUI=ON -DPMX_BUILD_TESTS=ON -DPMX_ENABLE_NAM_CORE=ON -DPMX_VERSION_STRING="$env:PMX_VERSION"
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            if ($attempt -eq $attempts) { exit $LASTEXITCODE }
+            Write-Host "Configure attempt $attempt failed; retrying after transient dependency error..."
+            Remove-Item -Recurse -Force build/_deps/namcore-* -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds (10 * $attempt)
+          }
 
       - name: Build Release
         run: cmake --build build --config Release --parallel
