@@ -10,6 +10,7 @@
 #include "analysis/FretboardNoteSolver.h"
 #include "analysis/PolyphonicNoteDetector.h"
 #include "performance/PerformanceEventEngine.h"
+#include "instruments/BassInstrumentEngine.h"
 #include "dsp/OutputProtector.h"
 #include "dsp/GuitarRack.h"
 #include "dsp/Metronome.h"
@@ -74,6 +75,11 @@ public:
     void setStringDrumsLevel(float level) noexcept { stringDrums.setLevel(level); }
     [[nodiscard]] bool stringDrumsEnabled() const noexcept { return stringDrums.isEnabled(); }
     [[nodiscard]] int lastStringDrum() const noexcept { return stringDrums.lastDetectedString(); }
+    void setBassEnabled(bool enabled) noexcept { bassInstrument.setEnabled(enabled); }
+    void setBassLevel(float level) noexcept { bassInstrument.setLevel(level); }
+    [[nodiscard]] bool bassEnabled() const noexcept { return bassInstrument.isEnabled(); }
+    [[nodiscard]] int bassMidiNote() const noexcept { return bassInstrument.bassMidiNote(); }
+    [[nodiscard]] float bassFrequencyHz() const noexcept { return bassInstrument.frequencyHz(); }
     void setInputGainDb(float db) noexcept;
     void setOutputGainDb(float db) noexcept;
     bool requestLoopCommand(LoopCommand) noexcept;
@@ -111,6 +117,7 @@ private:
     analysis::FretboardNoteSolver noteSolver;
     analysis::PolyphonicNoteDetector polyphonicDetector;
     performance::PerformanceEventEngine performanceEvents;
+    instruments::BassInstrumentEngine bassInstrument;
     looper::LooperEngine looperEngine;
     recording::QuickRecorder quickRecorder;
     std::vector<float> loopScratchLeft;
@@ -118,6 +125,7 @@ private:
     std::vector<float> metronomeScratch;
     std::vector<float> rhythmScratch;
     std::vector<float> stringDrumScratch;
+    std::vector<float> bassScratch;
     std::atomic<double> preparedSampleRate { 0.0 };
     std::atomic<int> preparedBlockSize { 0 };
 };
