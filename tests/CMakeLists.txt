@@ -52,6 +52,7 @@ target_sources(pmx_processing_engine_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/src/analysis/PolyphonicNoteDetector.cpp"
     "${PROJECT_SOURCE_DIR}/src/performance/PerformanceEventEngine.cpp"
     "${PROJECT_SOURCE_DIR}/src/instruments/BassInstrumentEngine.cpp"
+    "${PROJECT_SOURCE_DIR}/src/instruments/SynthInstrumentEngine.cpp"
     "${PROJECT_SOURCE_DIR}/src/instruments/GuitarProfile.cpp")
 target_compile_features(pmx_processing_engine_tests PRIVATE cxx_std_20)
 add_test(NAME pmx.processing_engine COMMAND pmx_processing_engine_tests)
@@ -239,3 +240,9 @@ add_executable(pmx_bass_instrument_tests instruments/BassInstrumentEngineTests.c
 target_include_directories(pmx_bass_instrument_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(pmx_bass_instrument_tests PRIVATE cxx_std_20)
 add_test(NAME pmx.bass_instrument COMMAND pmx_bass_instrument_tests)
+
+add_executable(pmx_synth_instrument_tests instruments/SynthInstrumentEngineTests.cpp
+    "${PROJECT_SOURCE_DIR}/src/instruments/SynthInstrumentEngine.cpp")
+target_include_directories(pmx_synth_instrument_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(pmx_synth_instrument_tests PRIVATE cxx_std_20)
+add_test(NAME pmx.synth_instrument COMMAND pmx_synth_instrument_tests)

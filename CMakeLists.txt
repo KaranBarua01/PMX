@@ -83,6 +83,7 @@ if(PMX_BUILD_GUI)
         src/instruments/GuitarProfile.cpp
         src/instruments/GuitarCalibration.cpp
         src/instruments/BassInstrumentEngine.cpp
+        src/instruments/SynthInstrumentEngine.cpp
         src/ui/components/TunerView.cpp
         src/assets/AssetLibrary.cpp
         src/nam/NamProcessor.cpp

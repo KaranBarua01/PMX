@@ -11,6 +11,7 @@
 #include "analysis/PolyphonicNoteDetector.h"
 #include "performance/PerformanceEventEngine.h"
 #include "instruments/BassInstrumentEngine.h"
+#include "instruments/SynthInstrumentEngine.h"
 #include "dsp/OutputProtector.h"
 #include "dsp/GuitarRack.h"
 #include "dsp/Metronome.h"
@@ -80,6 +81,12 @@ public:
     [[nodiscard]] bool bassEnabled() const noexcept { return bassInstrument.isEnabled(); }
     [[nodiscard]] int bassMidiNote() const noexcept { return bassInstrument.bassMidiNote(); }
     [[nodiscard]] float bassFrequencyHz() const noexcept { return bassInstrument.frequencyHz(); }
+    void setSynthEnabled(bool enabled) noexcept { synthInstrument.setEnabled(enabled); }
+    void setSynthLevel(float level) noexcept { synthInstrument.setLevel(level); }
+    void setSynthBrightness(float brightness) noexcept { synthInstrument.setBrightness(brightness); }
+    [[nodiscard]] bool synthEnabled() const noexcept { return synthInstrument.isEnabled(); }
+    [[nodiscard]] int synthMidiNote() const noexcept { return synthInstrument.midiNote(); }
+    [[nodiscard]] float synthFrequencyHz() const noexcept { return synthInstrument.frequencyHz(); }
     void setInputGainDb(float db) noexcept;
     void setOutputGainDb(float db) noexcept;
     bool requestLoopCommand(LoopCommand) noexcept;
@@ -118,6 +125,7 @@ private:
     analysis::PolyphonicNoteDetector polyphonicDetector;
     performance::PerformanceEventEngine performanceEvents;
     instruments::BassInstrumentEngine bassInstrument;
+    instruments::SynthInstrumentEngine synthInstrument;
     looper::LooperEngine looperEngine;
     recording::QuickRecorder quickRecorder;
     std::vector<float> loopScratchLeft;
@@ -126,6 +134,7 @@ private:
     std::vector<float> rhythmScratch;
     std::vector<float> stringDrumScratch;
     std::vector<float> bassScratch;
+    std::vector<float> synthScratch;
     std::atomic<double> preparedSampleRate { 0.0 };
     std::atomic<int> preparedBlockSize { 0 };
 };
