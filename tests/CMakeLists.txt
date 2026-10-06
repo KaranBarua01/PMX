@@ -50,6 +50,7 @@ target_sources(pmx_processing_engine_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/src/analysis/MusicalAnalysisEngine.cpp"
     "${PROJECT_SOURCE_DIR}/src/analysis/FretboardNoteSolver.cpp"
     "${PROJECT_SOURCE_DIR}/src/analysis/PolyphonicNoteDetector.cpp"
+    "${PROJECT_SOURCE_DIR}/src/performance/PerformanceEventEngine.cpp"
     "${PROJECT_SOURCE_DIR}/src/instruments/GuitarProfile.cpp")
 target_compile_features(pmx_processing_engine_tests PRIVATE cxx_std_20)
 add_test(NAME pmx.processing_engine COMMAND pmx_processing_engine_tests)
@@ -223,3 +224,10 @@ add_executable(pmx_polyphonic_probe
     "${PROJECT_SOURCE_DIR}/src/instruments/GuitarProfile.cpp")
 target_include_directories(pmx_polyphonic_probe PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(pmx_polyphonic_probe PRIVATE cxx_std_20)
+
+
+add_executable(pmx_performance_event_tests performance/PerformanceEventEngineTests.cpp
+    "${PROJECT_SOURCE_DIR}/src/performance/PerformanceEventEngine.cpp")
+target_include_directories(pmx_performance_event_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(pmx_performance_event_tests PRIVATE cxx_std_20)
+add_test(NAME pmx.performance_events COMMAND pmx_performance_event_tests)
