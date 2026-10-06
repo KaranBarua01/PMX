@@ -32,12 +32,20 @@ struct PerformanceEvent
     std::uint64_t sequence {};
 };
 
+class PerformanceEventSink
+{
+public:
+    virtual ~PerformanceEventSink()=default;
+    virtual void handlePerformanceEvent(const PerformanceEvent& event) noexcept=0;
+};
+
 class PerformanceEventEngine final
 {
 public:
     static constexpr unsigned queueCapacity=128;
 
     void reset() noexcept;
+    void setSink(PerformanceEventSink* newSink) noexcept { sink=newSink; }
     void process(const analysis::ResolvedNoteSnapshot& resolved,
                  const analysis::PolyphonicSnapshot& polyphonic) noexcept;
 
@@ -55,6 +63,7 @@ private:
     static float safeUnit(float value) noexcept;
     static float safeCents(float value) noexcept;
 
+    PerformanceEventSink* sink {};
     std::array<PerformanceEvent,queueCapacity> queue {};
     std::atomic<unsigned> writeIndex { 0 };
     std::atomic<unsigned> readIndex { 0 };

@@ -4,7 +4,10 @@
 
 namespace pmx::audio
 {
-ProcessingEngine::ProcessingEngine() : metronome(tempoService), rhythmDrums(tempoService) {}
+ProcessingEngine::ProcessingEngine() : metronome(tempoService), rhythmDrums(tempoService)
+{
+    performanceEvents.setSink(&bassInstrument);
+}
 
 void ProcessingEngine::setInputGainDb(float db) noexcept
 {
@@ -31,6 +34,7 @@ void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, i
     noteSolver.reset();
     polyphonicDetector.prepare(newSampleRate);
     performanceEvents.reset();
+    bassInstrument.prepare(newSampleRate);
     looperEngine.preparePreserving(newSampleRate, 120.0);
     quickRecorder.prepare(newSampleRate, 2, 2.0);
     loopScratchLeft.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
@@ -38,6 +42,7 @@ void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, i
     metronomeScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     rhythmScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     stringDrumScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
+    bassScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     muted.store(true, std::memory_order_relaxed);
     commandRead.store(commandWrite.load());
     publishLoopStatus();
@@ -51,6 +56,7 @@ void ProcessingEngine::stopped() noexcept
     noteSolver.reset();
     polyphonicDetector.reset();
     performanceEvents.reset();
+    bassInstrument.reset();
     looperEngine.stop();
     publishLoopStatus();
 }
@@ -91,7 +97,7 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
     {
         auto* out = outputs[c];
         if (out == nullptr) continue;
-        if (masterMuted || !hasLiveInput || stringDrums.isEnabled())
+        if (masterMuted || !hasLiveInput || stringDrums.isEnabled() || bassInstrument.isEnabled())
             std::fill_n(out, numSamples, 0.0f);
         else
         {
@@ -126,6 +132,16 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
                 if (outputs[c] != nullptr)
                     for (int i = 0; i < numSamples; ++i)
                         outputs[c][i] += stringDrumScratch[static_cast<std::size_t>(i)];
+        }
+
+        if (numSamples <= static_cast<int>(bassScratch.size()))
+        {
+            std::fill_n(bassScratch.data(),numSamples,0.0f);
+            bassInstrument.render(bassScratch.data(),numSamples);
+            for(int c=0;c<numOutputs;++c)
+                if(outputs[c]!=nullptr)
+                    for(int i=0;i<numSamples;++i)
+                        outputs[c][i]+=bassScratch[static_cast<std::size_t>(i)];
         }
 
         if (numSamples <= static_cast<int>(loopScratchLeft.size()))

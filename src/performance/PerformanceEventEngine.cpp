@@ -45,6 +45,9 @@ void PerformanceEventEngine::reset() noexcept
 
 bool PerformanceEventEngine::push(PerformanceEvent event) noexcept
 {
+    event.sequence=++nextSequence;
+    if(sink!=nullptr)sink->handlePerformanceEvent(event);
+
     const auto write=writeIndex.load(std::memory_order_relaxed);
     const auto next=(write+1u)%queueCapacity;
     if(next==readIndex.load(std::memory_order_acquire))
@@ -53,7 +56,6 @@ bool PerformanceEventEngine::push(PerformanceEvent event) noexcept
         return false;
     }
 
-    event.sequence=++nextSequence;
     queue[write]=event;
     writeIndex.store(next,std::memory_order_release);
     return true;
