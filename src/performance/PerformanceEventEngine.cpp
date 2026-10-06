@@ -16,6 +16,25 @@ bool contains(const std::array<int,analysis::PolyphonicSnapshot::maxNotes>& note
 }
 }
 
+void PerformanceEventEngine::setSink(PerformanceEventSink* newSink) noexcept
+{
+    sinks.fill(nullptr);
+    sinks[0]=newSink;
+}
+
+bool PerformanceEventEngine::addSink(PerformanceEventSink* newSink) noexcept
+{
+    if(newSink==nullptr)return false;
+    for(auto* existing:sinks)if(existing==newSink)return true;
+    for(auto& slot:sinks)
+        if(slot==nullptr)
+        {
+            slot=newSink;
+            return true;
+        }
+    return false;
+}
+
 float PerformanceEventEngine::safeUnit(float value) noexcept
 {
     return std::isfinite(value)?std::clamp(value,0.0f,1.0f):0.0f;
@@ -46,7 +65,7 @@ void PerformanceEventEngine::reset() noexcept
 bool PerformanceEventEngine::push(PerformanceEvent event) noexcept
 {
     event.sequence=++nextSequence;
-    if(sink!=nullptr)sink->handlePerformanceEvent(event);
+    for(auto* sink:sinks)if(sink!=nullptr)sink->handlePerformanceEvent(event);
 
     const auto write=writeIndex.load(std::memory_order_relaxed);
     const auto next=(write+1u)%queueCapacity;

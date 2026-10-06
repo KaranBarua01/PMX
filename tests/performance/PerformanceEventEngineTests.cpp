@@ -8,6 +8,18 @@ using pmx::performance::PerformanceEvent;
 using pmx::performance::PerformanceEventEngine;
 using pmx::performance::PerformanceEventSource;
 using pmx::performance::PerformanceEventType;
+using pmx::performance::PerformanceEventSink;
+
+struct CountingSink final : PerformanceEventSink
+{
+    int calls {};
+    PerformanceEvent last {};
+    void handlePerformanceEvent(const PerformanceEvent& event) noexcept override
+    {
+        ++calls;
+        last=event;
+    }
+};
 
 bool popExpect(PerformanceEventEngine& engine,
                PerformanceEventType type,
@@ -117,6 +129,25 @@ int main()
     }
     if(engine.droppedCount()==0)return 21;
     if(engine.pendingCount()>=PerformanceEventEngine::queueCapacity)return 22;
+
+    // Fixed-capacity fanout delivers each event to multiple instrument sinks without allocation.
+    engine.reset();
+    CountingSink first;
+    CountingSink second;
+    engine.setSink(&first);
+    if(!engine.addSink(&second))return 23;
+    if(!engine.addSink(&second))return 24;
+    if(engine.addSink(nullptr))return 25;
+    pmx::analysis::ResolvedNoteSnapshot fanout;
+    fanout.noteActive=true;
+    fanout.midiNote=60;
+    fanout.confidence=0.9f;
+    fanout.centsFromTarget=0.0f;
+    engine.process(fanout,emptyPoly(99));
+    if(first.calls!=2 || second.calls!=2)return 26;
+    fanout.centsFromTarget=12.0f;
+    engine.process(fanout,emptyPoly(99));
+    if(first.calls!=3 || second.calls!=3)return 27;
 
     return 0;
 }

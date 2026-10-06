@@ -45,7 +45,8 @@ public:
     static constexpr unsigned queueCapacity=128;
 
     void reset() noexcept;
-    void setSink(PerformanceEventSink* newSink) noexcept { sink=newSink; }
+    void setSink(PerformanceEventSink* newSink) noexcept;
+    [[nodiscard]] bool addSink(PerformanceEventSink* newSink) noexcept;
     void process(const analysis::ResolvedNoteSnapshot& resolved,
                  const analysis::PolyphonicSnapshot& polyphonic) noexcept;
 
@@ -63,7 +64,8 @@ private:
     static float safeUnit(float value) noexcept;
     static float safeCents(float value) noexcept;
 
-    PerformanceEventSink* sink {};
+    static constexpr unsigned sinkCapacity=4;
+    std::array<PerformanceEventSink*,sinkCapacity> sinks {};
     std::array<PerformanceEvent,queueCapacity> queue {};
     std::atomic<unsigned> writeIndex { 0 };
     std::atomic<unsigned> readIndex { 0 };
