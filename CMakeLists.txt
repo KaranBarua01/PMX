@@ -85,6 +85,7 @@ if(PMX_BUILD_GUI)
         src/instruments/BassInstrumentEngine.cpp
         src/instruments/SynthInstrumentEngine.cpp
         src/instruments/PianoInstrumentEngine.cpp
+        src/instruments/ViolinInstrumentEngine.cpp
         src/ui/components/TunerView.cpp
         src/assets/AssetLibrary.cpp
         src/nam/NamProcessor.cpp
