@@ -9,6 +9,7 @@ ProcessingEngine::ProcessingEngine() : metronome(tempoService), rhythmDrums(temp
     performanceEvents.setSink(&bassInstrument);
     performanceEvents.addSink(&synthInstrument);
     performanceEvents.addSink(&pianoInstrument);
+    performanceEvents.addSink(&violinInstrument);
 }
 
 void ProcessingEngine::setInputGainDb(float db) noexcept
@@ -39,6 +40,7 @@ void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, i
     bassInstrument.prepare(newSampleRate);
     synthInstrument.prepare(newSampleRate);
     pianoInstrument.prepare(newSampleRate);
+    violinInstrument.prepare(newSampleRate);
     looperEngine.preparePreserving(newSampleRate, 120.0);
     quickRecorder.prepare(newSampleRate, 2, 2.0);
     loopScratchLeft.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
@@ -49,6 +51,7 @@ void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, i
     bassScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     synthScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     pianoScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
+    violinScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     muted.store(true, std::memory_order_relaxed);
     commandRead.store(commandWrite.load());
     publishLoopStatus();
@@ -65,6 +68,7 @@ void ProcessingEngine::stopped() noexcept
     bassInstrument.reset();
     synthInstrument.reset();
     pianoInstrument.reset();
+    violinInstrument.reset();
     looperEngine.stop();
     publishLoopStatus();
 }
@@ -105,7 +109,7 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
     {
         auto* out = outputs[c];
         if (out == nullptr) continue;
-        if (masterMuted || !hasLiveInput || stringDrums.isEnabled() || bassInstrument.isEnabled() || synthInstrument.isEnabled() || pianoInstrument.isEnabled())
+        if (masterMuted || !hasLiveInput || stringDrums.isEnabled() || bassInstrument.isEnabled() || synthInstrument.isEnabled() || pianoInstrument.isEnabled() || violinInstrument.isEnabled())
             std::fill_n(out, numSamples, 0.0f);
         else
         {
@@ -170,6 +174,16 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
                 if(outputs[c]!=nullptr)
                     for(int i=0;i<numSamples;++i)
                         outputs[c][i]+=pianoScratch[static_cast<std::size_t>(i)];
+        }
+
+        if (numSamples <= static_cast<int>(violinScratch.size()))
+        {
+            std::fill_n(violinScratch.data(),numSamples,0.0f);
+            violinInstrument.render(violinScratch.data(),numSamples);
+            for(int c=0;c<numOutputs;++c)
+                if(outputs[c]!=nullptr)
+                    for(int i=0;i<numSamples;++i)
+                        outputs[c][i]+=violinScratch[static_cast<std::size_t>(i)];
         }
 
         if (numSamples <= static_cast<int>(loopScratchLeft.size()))
