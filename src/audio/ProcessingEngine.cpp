@@ -8,6 +8,7 @@ ProcessingEngine::ProcessingEngine() : metronome(tempoService), rhythmDrums(temp
 {
     performanceEvents.setSink(&bassInstrument);
     performanceEvents.addSink(&synthInstrument);
+    performanceEvents.addSink(&pianoInstrument);
 }
 
 void ProcessingEngine::setInputGainDb(float db) noexcept
@@ -37,6 +38,7 @@ void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, i
     performanceEvents.reset();
     bassInstrument.prepare(newSampleRate);
     synthInstrument.prepare(newSampleRate);
+    pianoInstrument.prepare(newSampleRate);
     looperEngine.preparePreserving(newSampleRate, 120.0);
     quickRecorder.prepare(newSampleRate, 2, 2.0);
     loopScratchLeft.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
@@ -46,6 +48,7 @@ void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, i
     stringDrumScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     bassScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     synthScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
+    pianoScratch.assign(static_cast<std::size_t>(std::max(1, newMaxBlockSize)), 0.0f);
     muted.store(true, std::memory_order_relaxed);
     commandRead.store(commandWrite.load());
     publishLoopStatus();
@@ -61,6 +64,7 @@ void ProcessingEngine::stopped() noexcept
     performanceEvents.reset();
     bassInstrument.reset();
     synthInstrument.reset();
+    pianoInstrument.reset();
     looperEngine.stop();
     publishLoopStatus();
 }
@@ -101,7 +105,7 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
     {
         auto* out = outputs[c];
         if (out == nullptr) continue;
-        if (masterMuted || !hasLiveInput || stringDrums.isEnabled() || bassInstrument.isEnabled() || synthInstrument.isEnabled())
+        if (masterMuted || !hasLiveInput || stringDrums.isEnabled() || bassInstrument.isEnabled() || synthInstrument.isEnabled() || pianoInstrument.isEnabled())
             std::fill_n(out, numSamples, 0.0f);
         else
         {
@@ -156,6 +160,16 @@ void ProcessingEngine::process(const float* const* inputs, int numInputs,
                 if(outputs[c]!=nullptr)
                     for(int i=0;i<numSamples;++i)
                         outputs[c][i]+=synthScratch[static_cast<std::size_t>(i)];
+        }
+
+        if (numSamples <= static_cast<int>(pianoScratch.size()))
+        {
+            std::fill_n(pianoScratch.data(),numSamples,0.0f);
+            pianoInstrument.render(pianoScratch.data(),numSamples);
+            for(int c=0;c<numOutputs;++c)
+                if(outputs[c]!=nullptr)
+                    for(int i=0;i<numSamples;++i)
+                        outputs[c][i]+=pianoScratch[static_cast<std::size_t>(i)];
         }
 
         if (numSamples <= static_cast<int>(loopScratchLeft.size()))
