@@ -13,6 +13,7 @@
 #include "instruments/BassInstrumentEngine.h"
 #include "instruments/SynthInstrumentEngine.h"
 #include "instruments/PianoInstrumentEngine.h"
+#include "instruments/ViolinInstrumentEngine.h"
 #include "dsp/OutputProtector.h"
 #include "dsp/GuitarRack.h"
 #include "dsp/Metronome.h"
@@ -93,6 +94,12 @@ public:
     void setPianoBrightness(float brightness) noexcept { pianoInstrument.setBrightness(brightness); }
     [[nodiscard]] bool pianoEnabled() const noexcept { return pianoInstrument.isEnabled(); }
     [[nodiscard]] int pianoHeldNoteCount() const noexcept { return pianoInstrument.heldNoteCount(); }
+    void setViolinEnabled(bool enabled) noexcept { violinInstrument.setEnabled(enabled); }
+    void setViolinLevel(float level) noexcept { violinInstrument.setLevel(level); }
+    void setViolinBrightness(float brightness) noexcept { violinInstrument.setBrightness(brightness); }
+    [[nodiscard]] bool violinEnabled() const noexcept { return violinInstrument.isEnabled(); }
+    [[nodiscard]] int violinMidiNote() const noexcept { return violinInstrument.midiNote(); }
+    [[nodiscard]] float violinFrequencyHz() const noexcept { return violinInstrument.frequencyHz(); }
     void setInputGainDb(float db) noexcept;
     void setOutputGainDb(float db) noexcept;
     bool requestLoopCommand(LoopCommand) noexcept;
@@ -133,6 +140,7 @@ private:
     instruments::BassInstrumentEngine bassInstrument;
     instruments::SynthInstrumentEngine synthInstrument;
     instruments::PianoInstrumentEngine pianoInstrument;
+    instruments::ViolinInstrumentEngine violinInstrument;
     looper::LooperEngine looperEngine;
     recording::QuickRecorder quickRecorder;
     std::vector<float> loopScratchLeft;
@@ -143,6 +151,7 @@ private:
     std::vector<float> bassScratch;
     std::vector<float> synthScratch;
     std::vector<float> pianoScratch;
+    std::vector<float> violinScratch;
     std::atomic<double> preparedSampleRate { 0.0 };
     std::atomic<int> preparedBlockSize { 0 };
 };
