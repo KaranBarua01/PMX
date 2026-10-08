@@ -105,11 +105,49 @@ int main(int argc,char** argv)
             ok=false;
         }
         shell.goTo(pmx::ui::AppShell::Page::special);
+        shell.special().setInstrumentMode(pmx::ui::SpecialScreen::InstrumentMode::none);
         if(!buttonNamed(shell.special(),"STRING DRUMS OFF")||!buttonNamed(shell.special(),"LEARN GUITAR")||!buttonNamed(shell.special(),"BEATS OFF"))
         {
             std::cerr<<"Special page is missing experimental controls\n";
             ok=false;
         }
+        auto* synth=buttonNamed(shell.special(),"SYNTH");
+        auto* bass=buttonNamed(shell.special(),"BASS");
+        auto* piano=buttonNamed(shell.special(),"PIANO");
+        auto* violin=buttonNamed(shell.special(),"VIOLIN");
+        auto* drums=buttonNamed(shell.special(),"DRUMS");
+        if(!synth||!bass||!piano||!violin||!drums||!synth->isEnabled()||!bass->isEnabled()||!piano->isEnabled()||!violin->isEnabled()||!drums->isEnabled())
+        {
+            std::cerr<<"SPECIAL instrument selectors must be enabled\n";
+            ok=false;
+        }
+        int instrumentModeCalls=0;
+        pmx::ui::SpecialScreen::InstrumentMode selectedInstrument=pmx::ui::SpecialScreen::InstrumentMode::none;
+        shell.special().onInstrumentModeChanged=[&](auto mode){selectedInstrument=mode;++instrumentModeCalls;};
+        if(synth&&synth->onClick)synth->onClick();
+        if(selectedInstrument!=pmx::ui::SpecialScreen::InstrumentMode::synth||!synth->getToggleState()||(bass&&bass->getToggleState()))
+        {
+            std::cerr<<"Synth selector did not become the exclusive active instrument\n";
+            ok=false;
+        }
+        if(bass&&bass->onClick)bass->onClick();
+        if(selectedInstrument!=pmx::ui::SpecialScreen::InstrumentMode::bass||(synth&&synth->getToggleState())||!bass->getToggleState())
+        {
+            std::cerr<<"Bass selector did not replace the previous instrument mode\n";
+            ok=false;
+        }
+        if(drums&&drums->onClick)drums->onClick();
+        if(selectedInstrument!=pmx::ui::SpecialScreen::InstrumentMode::drums||!buttonNamed(shell.special(),"STRING DRUMS ON"))
+        {
+            std::cerr<<"Drums selector did not synchronize String Drums mode\n";
+            ok=false;
+        }
+        if(instrumentModeCalls!=3)
+        {
+            std::cerr<<"SPECIAL instrument mode callback count is incorrect\n";
+            ok=false;
+        }
+        shell.special().setInstrumentMode(pmx::ui::SpecialScreen::InstrumentMode::none);
         shell.goTo(pmx::ui::AppShell::Page::live);
         if(auto* gate=buttonNamed(shell.live(),"GATE");gate && gate->onClick) gate->onClick();
         if(!shell.live().hasModalEditorOpen()){std::cerr<<"Gate card must open an effect editor\n";ok=false;}
