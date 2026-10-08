@@ -38,6 +38,7 @@ private:
     void enableMonitoring();
     void updateDiagnostics();
     void updateLooperUi();
+    void setSpecialInstrumentMode(ui::SpecialScreen::InstrumentMode mode);
     void handleShortcut(input::ShortcutCommand);
     void tapTempo();
     void chooseNam();
