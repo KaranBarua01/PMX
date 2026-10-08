@@ -27,6 +27,7 @@ public:
     void setLevel(float value) noexcept { level.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed); }
     [[nodiscard]] bool isEnabled() const noexcept { return enabled.load(std::memory_order_relaxed); }
     [[nodiscard]] int lastDetectedString() const noexcept { return lastDetected.load(std::memory_order_relaxed); }
+    [[nodiscard]] std::uint64_t triggerSerial() const noexcept { return publishedTriggerSerial.load(std::memory_order_relaxed); }
 
 private:
     static constexpr int captureSize = 1024;
@@ -40,8 +41,11 @@ private:
     std::array<float, captureSize> capture {};
     int captureCount {};
     int cooldownSamples {};
+    int quietSamples {};
     float slowEnvelope {};
+    float gateEnvelope {};
     float previousAbs {};
+    bool triggerArmed { true };
     bool wasEnabled {};
 
     float kickEnvelope {}, snareEnvelope {}, closedHatEnvelope {}, openHatEnvelope {}, tomEnvelope {}, crashEnvelope {};
@@ -52,5 +56,6 @@ private:
     std::atomic<bool> enabled { false };
     std::atomic<float> level { 0.55f };
     std::atomic<int> lastDetected { -1 };
+    std::atomic<std::uint64_t> publishedTriggerSerial { 0 };
 };
 } // namespace pmx::dsp
