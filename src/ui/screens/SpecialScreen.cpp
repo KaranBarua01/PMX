@@ -24,7 +24,7 @@ SpecialScreen::SpecialScreen()
     instrumentHeading.setText("GUITAR -> INSTRUMENTS", juce::dontSendNotification);
     instrumentHeading.setColour(juce::Label::textColourId, juce::Colour(Theme::text));
     instrumentHeading.setFont(juce::FontOptions(15.0f, juce::Font::bold));
-    instrumentDetail.setText("Musical Analysis will drive Synth, Bass, Piano, Violin and Drums. Engines are being built next.", juce::dontSendNotification);
+    instrumentDetail.setText("Choose one guitar-triggered instrument. Selecting another switches modes without stacking sounds.", juce::dontSendNotification);
 
     static constexpr const char* subtitles[] {
         "Pitch, bend, slide and vibrato",
@@ -38,13 +38,18 @@ SpecialScreen::SpecialScreen()
         addAndMakeVisible(instruments[i]);
         instruments[i].getProperties().set("category","INSTRUMENT ENGINE");
         instruments[i].getProperties().set("subtitle",subtitles[i]);
-        instruments[i].setEnabled(false);
+        instruments[i].getProperties().set("active",false);
+        instruments[i].setEnabled(true);
+        instruments[i].onClick=[this,i]{
+            const auto mode=static_cast<InstrumentMode>(static_cast<int>(i)+1);
+            chooseInstrumentMode(selectedInstrument==mode?InstrumentMode::none:mode);
+        };
     }
 
     profileHeading.setText("GUITAR PROFILE", juce::dontSendNotification);
     profileHeading.setColour(juce::Label::textColourId, juce::Colour(Theme::text));
     profileHeading.setFont(juce::FontOptions(15.0f, juce::Font::bold));
-    profileDetail.setText("Teach PMX your six open strings. The saved profile supports standard, Drop D and alternate tunings.", juce::dontSendNotification);
+    profileDetail.setText("Teach PMX your six open strings. The saved profile supports your learned six-string tuning.", juce::dontSendNotification);
     addAndMakeVisible(calibrateGuitar);
     calibrateGuitar.onClick=[this]{if(onCalibrateGuitar)onCalibrateGuitar();};
 
@@ -58,8 +63,9 @@ SpecialScreen::SpecialScreen()
     addAndMakeVisible(stringDrumLevel);
     stringDrums.setClickingTogglesState(true);
     stringDrums.onClick=[this]{
-        stringDrums.setButtonText(stringDrums.getToggleState()?"STRING DRUMS ON":"STRING DRUMS OFF");
-        if(onStringDrumsChanged)onStringDrumsChanged(stringDrums.getToggleState());
+        const bool enabled=stringDrums.getToggleState();
+        setInstrumentMode(enabled?InstrumentMode::drums:InstrumentMode::none);
+        if(onStringDrumsChanged)onStringDrumsChanged(enabled);
     };
     stringDrumLevel.setRange(0,100,1);
     stringDrumLevel.setValue(55);
@@ -91,6 +97,29 @@ SpecialScreen::SpecialScreen()
     rhythmLevel.setSliderStyle(juce::Slider::LinearHorizontal);
     rhythmLevel.setTextBoxStyle(juce::Slider::NoTextBox,false,0,0);
     rhythmLevel.onValueChange=[this]{if(onRhythmLevel)onRhythmLevel(static_cast<float>(rhythmLevel.getValue()/100.0));};
+}
+
+void SpecialScreen::chooseInstrumentMode(InstrumentMode mode)
+{
+    setInstrumentMode(mode);
+    if(onInstrumentModeChanged)onInstrumentModeChanged(mode);
+}
+
+void SpecialScreen::setInstrumentMode(InstrumentMode mode)
+{
+    selectedInstrument=mode;
+    for(std::size_t i=0;i<instruments.size();++i)
+    {
+        const auto buttonMode=static_cast<InstrumentMode>(static_cast<int>(i)+1);
+        const bool active=buttonMode==mode;
+        instruments[i].setToggleState(active,juce::dontSendNotification);
+        instruments[i].getProperties().set("active",active);
+        instruments[i].repaint();
+    }
+
+    const bool drumsActive=mode==InstrumentMode::drums;
+    stringDrums.setToggleState(drumsActive,juce::dontSendNotification);
+    stringDrums.setButtonText(drumsActive?"STRING DRUMS ON":"STRING DRUMS OFF");
 }
 
 void SpecialScreen::setStringDrumDetected(int value)
