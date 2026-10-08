@@ -75,7 +75,8 @@ void PmxRuntime::wireUi()
     shell.special().onRhythmChanged=[this](bool enabled){engine.setRhythmEnabled(enabled);};
     shell.special().onRhythmLevel=[this](float level){engine.setRhythmLevel(level);};
     shell.special().onRhythmPattern=[this](int pattern){engine.setRhythmPattern(pattern);};
-    shell.special().onStringDrumsChanged=[this](bool enabled){engine.setStringDrumsEnabled(enabled);};
+    shell.special().onInstrumentModeChanged=[this](ui::SpecialScreen::InstrumentMode mode){setSpecialInstrumentMode(mode);};
+    shell.special().onStringDrumsChanged=[this](bool enabled){setSpecialInstrumentMode(enabled?ui::SpecialScreen::InstrumentMode::drums:ui::SpecialScreen::InstrumentMode::none);};
     shell.special().onStringDrumsLevel=[this](float level){engine.setStringDrumsLevel(level);};
     shell.special().onCalibrateGuitar=[this]{
         if(guitarCalibration.active()){
@@ -221,6 +222,22 @@ void PmxRuntime::updateDiagnostics()
     }
     const auto result=audio::AudioDiagnosticService::evaluate(input);
     shell.settings().setConnectionStatus(result.ok,result.connectionText,result.detail,result.driverIoLatencyMs);
+}
+
+void PmxRuntime::setSpecialInstrumentMode(ui::SpecialScreen::InstrumentMode mode)
+{
+    audio::InstrumentMode routed=audio::InstrumentMode::none;
+    switch(mode)
+    {
+        case ui::SpecialScreen::InstrumentMode::synth: routed=audio::InstrumentMode::synth; break;
+        case ui::SpecialScreen::InstrumentMode::bass: routed=audio::InstrumentMode::bass; break;
+        case ui::SpecialScreen::InstrumentMode::piano: routed=audio::InstrumentMode::piano; break;
+        case ui::SpecialScreen::InstrumentMode::violin: routed=audio::InstrumentMode::violin; break;
+        case ui::SpecialScreen::InstrumentMode::drums: routed=audio::InstrumentMode::drums; break;
+        case ui::SpecialScreen::InstrumentMode::none: break;
+    }
+    engine.setInstrumentMode(routed);
+    shell.special().setInstrumentMode(mode);
 }
 
 void PmxRuntime::tapTempo()
