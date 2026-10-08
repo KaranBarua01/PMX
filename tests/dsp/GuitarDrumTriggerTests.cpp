@@ -47,5 +47,24 @@ int main()
     if(trigger.lastDetectedString()!=-1) return 20;
     for(float v:output) if(std::abs(v)>0.000001f) return 21;
 
+    // A single ringing pluck must produce one drum hit only. The old onset-only
+    // cooldown could re-trigger on later waveform peaks while the string rang.
+    trigger.prepare(44100.0);
+    trigger.setEnabled(true);
+    std::array<float,22050> ringing{}, ringingOut{};
+    makePluck(ringing,frequencies[0],44100.0,0.38);
+    trigger.process(ringing.data(),ringingOut.data(),static_cast<int>(ringing.size()));
+    if(trigger.triggerSerial()!=1) return 23;
+    if(trigger.lastDetectedString()!=0) return 24;
+
+    // Damping/releasing the string rearms the trigger so the next intentional
+    // pluck is still responsive instead of relying on a long fixed cooldown.
+    std::array<float,4096> silence{}, silenceOut{}, repluck{}, repluckOut{};
+    trigger.process(silence.data(),silenceOut.data(),static_cast<int>(silence.size()));
+    makePluck(repluck,frequencies[0],44100.0,0.38);
+    trigger.process(repluck.data(),repluckOut.data(),static_cast<int>(repluck.size()));
+    if(trigger.triggerSerial()!=2) return 25;
+    if(trigger.lastDetectedString()!=0) return 26;
+
     return 0;
 }
