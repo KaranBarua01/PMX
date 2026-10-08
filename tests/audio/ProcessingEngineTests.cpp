@@ -255,5 +255,23 @@ int main()
     if(!sawPolyphonicNoteOn)return 44;
     if(!sawChord)return 45;
     if(engine.droppedPerformanceEvents()!=0)return 46;
+
+    // SPECIAL instrument routing is exclusive: selecting one engine must disable
+    // every other guitar-triggered instrument instead of stacking sounds.
+    engine.setInstrumentMode(pmx::audio::InstrumentMode::synth);
+    if(engine.instrumentMode()!=pmx::audio::InstrumentMode::synth)return 47;
+    if(!engine.synthEnabled()||engine.bassEnabled()||engine.pianoEnabled()||engine.violinEnabled()||engine.stringDrumsEnabled())return 48;
+
+    engine.setInstrumentMode(pmx::audio::InstrumentMode::piano);
+    if(engine.instrumentMode()!=pmx::audio::InstrumentMode::piano)return 49;
+    if(engine.synthEnabled()||engine.bassEnabled()||!engine.pianoEnabled()||engine.violinEnabled()||engine.stringDrumsEnabled())return 50;
+
+    engine.setInstrumentMode(pmx::audio::InstrumentMode::drums);
+    if(engine.instrumentMode()!=pmx::audio::InstrumentMode::drums)return 51;
+    if(engine.synthEnabled()||engine.bassEnabled()||engine.pianoEnabled()||engine.violinEnabled()||!engine.stringDrumsEnabled())return 52;
+
+    engine.setInstrumentMode(pmx::audio::InstrumentMode::none);
+    if(engine.instrumentMode()!=pmx::audio::InstrumentMode::none)return 53;
+    if(engine.synthEnabled()||engine.bassEnabled()||engine.pianoEnabled()||engine.violinEnabled()||engine.stringDrumsEnabled())return 54;
     return 0;
 }
