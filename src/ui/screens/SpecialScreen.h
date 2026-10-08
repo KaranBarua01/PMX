@@ -9,13 +9,18 @@ namespace pmx::ui
 class SpecialScreen final : public juce::Component
 {
 public:
+    enum class InstrumentMode { none, synth, bass, piano, violin, drums };
+
     SpecialScreen();
     void paint(juce::Graphics&) override;
     void resized() override;
 
     void setStringDrumDetected(int value);
     void setGuitarCalibrationProgress(bool active, int stringIndex, bool completed);
+    void setInstrumentMode(InstrumentMode mode);
+    [[nodiscard]] InstrumentMode instrumentMode() const noexcept { return selectedInstrument; }
 
+    std::function<void(InstrumentMode)> onInstrumentModeChanged;
     std::function<void(bool)> onRhythmChanged;
     std::function<void(float)> onRhythmLevel;
     std::function<void(int)> onRhythmPattern;
@@ -24,6 +29,8 @@ public:
     std::function<void()> onCalibrateGuitar;
 
 private:
+    void chooseInstrumentMode(InstrumentMode mode);
+
     juce::Label eyebrow, title, subtitle;
     juce::Label instrumentHeading, instrumentDetail;
     juce::Label profileHeading, profileDetail;
@@ -43,6 +50,7 @@ private:
 
     juce::Rectangle<int> profileCard, stringDrumCard, beatsCard;
     int rhythmPatternIndex { 1 };
+    InstrumentMode selectedInstrument { InstrumentMode::none };
     bool guitarCalibrationActive {};
 };
 } // namespace pmx::ui
