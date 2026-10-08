@@ -27,6 +27,7 @@
 namespace pmx::audio
 {
 enum class LoopCommand { record, play, overdub, stop, undo, redo, clear };
+enum class InstrumentMode { none, synth, bass, piano, violin, drums };
 struct LoopStatus
 {
     looper::LooperState state{looper::LooperState::empty};
@@ -76,6 +77,8 @@ public:
     [[nodiscard]] int rhythmPattern() const noexcept { return rhythmDrums.currentPattern(); }
     void setStringDrumsEnabled(bool enabled) noexcept { stringDrums.setEnabled(enabled); }
     void setStringDrumsLevel(float level) noexcept { stringDrums.setLevel(level); }
+    void setInstrumentMode(InstrumentMode mode) noexcept;
+    [[nodiscard]] InstrumentMode instrumentMode() const noexcept { return activeInstrumentMode.load(std::memory_order_relaxed); }
     [[nodiscard]] bool stringDrumsEnabled() const noexcept { return stringDrums.isEnabled(); }
     [[nodiscard]] int lastStringDrum() const noexcept { return stringDrums.lastDetectedString(); }
     void setBassEnabled(bool enabled) noexcept { bassInstrument.setEnabled(enabled); }
@@ -123,6 +126,7 @@ private:
     std::atomic<bool> muted { true };
     std::atomic<float> inputGain { 1.0f };
     std::atomic<float> outputGain { 1.0f };
+    std::atomic<InstrumentMode> activeInstrumentMode { InstrumentMode::none };
     SignalMetrics signalMetrics;
     dsp::OutputProtector outputProtector;
     dsp::GuitarRack guitarRack;
