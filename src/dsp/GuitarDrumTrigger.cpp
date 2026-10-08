@@ -15,19 +15,31 @@ void GuitarDrumTrigger::prepare(double newSampleRate) noexcept
     capture.fill(0.0f);
     captureCount = 0;
     cooldownSamples = 0;
+    quietSamples = 0;
     slowEnvelope = 0.0f;
+    gateEnvelope = 0.0f;
     previousAbs = 0.0f;
+    triggerArmed = true;
     wasEnabled = false;
     kickEnvelope = snareEnvelope = closedHatEnvelope = openHatEnvelope = tomEnvelope = crashEnvelope = 0.0f;
     kickPhase = snarePhase = tomPhase = crashPhase = 0.0;
     previousNoise = 0.0f;
     lastDetected.store(-1, std::memory_order_relaxed);
+    publishedTriggerSerial.store(0, std::memory_order_relaxed);
 }
 
 void GuitarDrumTrigger::setEnabled(bool value) noexcept
 {
     enabled.store(value, std::memory_order_release);
     lastDetected.store(-1, std::memory_order_relaxed);
+    if (!value)
+    {
+        captureCount = 0;
+        cooldownSamples = 0;
+        quietSamples = 0;
+        gateEnvelope = 0.0f;
+        triggerArmed = true;
+    }
 }
 
 float GuitarDrumTrigger::noise() noexcept
@@ -90,6 +102,10 @@ GuitarDrumPad GuitarDrumTrigger::classifyCapturedPitch() const noexcept
 void GuitarDrumTrigger::trigger(GuitarDrumPad pad) noexcept
 {
     lastDetected.store(static_cast<int>(pad), std::memory_order_relaxed);
+    publishedTriggerSerial.fetch_add(1, std::memory_order_relaxed);
+    triggerArmed = false;
+    quietSamples = 0;
+    cooldownSamples = std::max(cooldownSamples, static_cast<int>(sampleRate * 0.045));
     switch (pad)
     {
         case GuitarDrumPad::lowE: kickEnvelope = 1.0f; kickPhase = 0.0; break;
@@ -145,8 +161,11 @@ void GuitarDrumTrigger::process(const float* input, float* monoOut, int numSampl
     {
         captureCount = 0;
         cooldownSamples = 0;
+        quietSamples = 0;
         slowEnvelope = 0.0f;
+        gateEnvelope = 0.0f;
         previousAbs = 0.0f;
+        triggerArmed = true;
         if (!active)
             kickEnvelope = snareEnvelope = closedHatEnvelope = openHatEnvelope = tomEnvelope = crashEnvelope = 0.0f;
         wasEnabled = active;
@@ -159,14 +178,41 @@ void GuitarDrumTrigger::process(const float* input, float* monoOut, int numSampl
             const float value = std::isfinite(input[i]) ? input[i] : 0.0f;
             const float magnitude = std::abs(value);
             slowEnvelope = slowEnvelope * 0.9992f + magnitude * 0.0008f;
+
+            const float previousGateEnvelope = gateEnvelope;
+            const float gateRelease = static_cast<float>(std::exp(-1.0 / (sampleRate * 0.055)));
+            gateEnvelope = std::max(magnitude, gateEnvelope * gateRelease);
+
             if (cooldownSamples > 0) --cooldownSamples;
+
+            if (!triggerArmed && cooldownSamples == 0)
+            {
+                const float quietThreshold = std::max(0.0035f, slowEnvelope * 0.55f);
+                if (gateEnvelope < quietThreshold)
+                    ++quietSamples;
+                else
+                    quietSamples = 0;
+
+                const int requiredQuietSamples = std::max(1, static_cast<int>(sampleRate * 0.012));
+                const bool quietRelease = quietSamples >= requiredQuietSamples;
+                const bool deliberateReattack =
+                    magnitude > 0.010f &&
+                    previousGateEnvelope > 0.0f &&
+                    magnitude > previousGateEnvelope * 1.65f;
+
+                if (quietRelease || deliberateReattack)
+                {
+                    triggerArmed = true;
+                    quietSamples = 0;
+                }
+            }
 
             if (captureCount == 0)
             {
                 const float threshold = std::max(0.004f, slowEnvelope * 2.4f);
                 const bool crossedThreshold = previousAbs <= threshold && magnitude > threshold;
                 const bool fastRise = magnitude > threshold && magnitude > previousAbs * 1.08f;
-                const bool onset = cooldownSamples == 0 && (crossedThreshold || fastRise);
+                const bool onset = triggerArmed && cooldownSamples == 0 && (crossedThreshold || fastRise);
                 if (onset)
                     captureCount = 1, capture[0] = value;
             }
@@ -179,7 +225,8 @@ void GuitarDrumTrigger::process(const float* input, float* monoOut, int numSampl
                     const auto pad = classifyCapturedPitch();
                     if (pad != GuitarDrumPad::none) trigger(pad);
                     captureCount = 0;
-                    cooldownSamples = static_cast<int>(sampleRate * 0.075);
+                    if (pad == GuitarDrumPad::none)
+                        cooldownSamples = static_cast<int>(sampleRate * 0.025);
                 }
             }
             previousAbs = magnitude;
@@ -188,6 +235,8 @@ void GuitarDrumTrigger::process(const float* input, float* monoOut, int numSampl
         {
             captureCount = 0;
             previousAbs = 0.0f;
+            quietSamples = 0;
+            gateEnvelope *= 0.98f;
             slowEnvelope *= 0.995f;
         }
 
