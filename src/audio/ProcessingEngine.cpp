@@ -22,6 +22,17 @@ void ProcessingEngine::setOutputGainDb(float db) noexcept
     if(std::isfinite(db)) outputGain.store(std::pow(10.0f, std::clamp(db,-60.0f,6.0f) / 20.0f), std::memory_order_relaxed);
 }
 
+void ProcessingEngine::setInstrumentMode(InstrumentMode mode) noexcept
+{
+    activeInstrumentMode.store(mode,std::memory_order_relaxed);
+    synthInstrument.setEnabled(mode==InstrumentMode::synth);
+    bassInstrument.setEnabled(mode==InstrumentMode::bass);
+    pianoInstrument.setEnabled(mode==InstrumentMode::piano);
+    violinInstrument.setEnabled(mode==InstrumentMode::violin);
+    stringDrums.setEnabled(mode==InstrumentMode::drums);
+}
+
+
 void ProcessingEngine::prepare(double newSampleRate, int newMaxBlockSize, int, int)
 {
     preparedSampleRate = newSampleRate;
@@ -69,6 +80,12 @@ void ProcessingEngine::stopped() noexcept
     synthInstrument.reset();
     pianoInstrument.reset();
     violinInstrument.reset();
+    activeInstrumentMode.store(InstrumentMode::none,std::memory_order_relaxed);
+    synthInstrument.setEnabled(false);
+    bassInstrument.setEnabled(false);
+    pianoInstrument.setEnabled(false);
+    violinInstrument.setEnabled(false);
+    stringDrums.setEnabled(false);
     looperEngine.stop();
     publishLoopStatus();
 }
