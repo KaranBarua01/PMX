@@ -80,12 +80,6 @@ void ProcessingEngine::stopped() noexcept
     synthInstrument.reset();
     pianoInstrument.reset();
     violinInstrument.reset();
-    activeInstrumentMode.store(InstrumentMode::none,std::memory_order_relaxed);
-    synthInstrument.setEnabled(false);
-    bassInstrument.setEnabled(false);
-    pianoInstrument.setEnabled(false);
-    violinInstrument.setEnabled(false);
-    stringDrums.setEnabled(false);
     looperEngine.stop();
     publishLoopStatus();
 }
